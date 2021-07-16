@@ -16,6 +16,7 @@ library(nlstools)
 library(tidyr)
 library(nls2)
 library(msm)
+library(magrittr)
 #load data:
 IR_data <-read_csv("/Users/Ecologia/Documents/USUARIOS/DARÍO/intrinsic_growth2.csv") %>%
   filter(Filter_3 == "yes") %>% #select only those which have passed the filter 3 in the source csv
@@ -619,8 +620,6 @@ IR_data_ID <- IR_data %>%
   distinct(`Article Title`)%>%
   mutate(id=row_number())
 IR_data_all <- inner_join(IR_data,IR_data_ID,by="Article Title")
-IR_data_all
-
 startVals_list <- list() #para almacenar los starting
 ## one by one ##
 
@@ -5971,6 +5970,348 @@ colnames(params_br1_109) <- c("a_est_nls","a_se_nls",
                               "starting_Tmax","which_signif")
 params_br1_109
 
+
+#### _ _ Study 110 ####
+IR_data_ID110 <- IR_data_all %>%
+  filter(id==110)
+par(mfrow=c(2,2))
+plot(IR_data_ID110$temperature,IR_data_ID110$growth_rate)
+plot(IR_data_ID110$temperature,briere1(a=0.0003,Tmin=12,Tmax=40,temp=IR_data_ID110$temperature))
+plot(IR_data_ID110$temperature,briere1(a=0.0002,Tmin=12,Tmax=40,temp=IR_data_ID110$temperature))
+grid_br1_110 <- expand.grid(list(a=seq(0.00015,0.00025,by=0.00001),
+                                Tmin=seq(10,20,by=0.5),
+                                Tmax=seq(32,42,by=0.5)))
+fitted_br1_110 <- nls2(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                      data = IR_data_ID110,
+                      start = grid_br1_110,
+                      algorithm = "brute-force",
+                      trace = TRUE)
+sum_br1_110 <- summary(fitted_br1_110)
+# viendo esos parametros, buscamos starters cercanos para facilitar el ajuste
+startVals_110 <- c(sum_br1_110$coefficients[,1])
+startVals_list[[110]] <- startVals_110 #llenar lista starting values
+fitted_br1_110 <- nls(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                     data = IR_data_ID110,
+                     start = startVals_110)
+sum_br1_110 <- summary(fitted_br1_110)
+sum_br1_110 
+boot_br1_110 <- nlsBoot(fitted_br1_110, niter = 999)
+coefs_110 <- data.frame(sum_br1_110$coefficients[,1:2],row.names = NULL)
+boot_110 <- data.frame(boot_br1_110$estiboot)
+Topt_est_110 <- Topt(Tmin=coefs_110[2,1],
+                    Tmax=coefs_110[3,1],
+                    m=2)
+Topt_se_110 <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
+                          coef(fitted_br1_110), vcov(fitted_br1_110))
+
+params_br1_110 <- data.frame(coefs_110[1,],
+                            coefs_110[2,],
+                            coefs_110[3,],
+                            Topt_est_110,
+                            Topt_se_110,
+                            boot_110[1,],
+                            boot_110[2,],
+                            boot_110[3,],
+                            startVals_110[1],
+                            startVals_110[2],
+                            startVals_110[3],
+                            "all")
+colnames(params_br1_110) <- c("a_est_nls","a_se_nls",
+                             "Tmin_est_nls","Tmin_se_nls",
+                             "Tmax_est_nls","Tmax_se_nls",
+                             "Topt_est","Topt_se_delta",
+                             "a_est_boot","a_se_boot",
+                             "Tmin_est_boot","Tmin_se_boot",
+                             "Tmax_est_boot","Tmax_se_boot",
+                             "starting_a","starting_Tmin",
+                             "starting_Tmax","which_signif")
+params_br1_110
+
+#### _ _ Study 111 ####
+IR_data_ID111 <- IR_data_all %>%
+  filter(id==111)
+par(mfrow=c(2,2))
+plot(IR_data_ID111$temperature,IR_data_ID111$growth_rate)
+plot(IR_data_ID111$temperature,briere1(a=0.00025,Tmin=12,Tmax=39,temp=IR_data_ID111$temperature))
+plot(IR_data_ID111$temperature,briere1(a=0.00023,Tmin=11,Tmax=38.5,temp=IR_data_ID111$temperature))
+grid_br1_111 <- expand.grid(list(a=seq(0.00017,0.00027,by=0.00001),
+                                 Tmin=seq(8,18,by=0.5),
+                                 Tmax=seq(32,42,by=0.5)))
+fitted_br1_111 <- nls2(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                       data = IR_data_ID111,
+                       start = grid_br1_111,
+                       algorithm = "brute-force",
+                       trace = TRUE)
+sum_br1_111 <- summary(fitted_br1_111)
+# viendo esos parametros, buscamos starters cercanos para facilitar el ajuste
+startVals_111 <- c(sum_br1_111$coefficients[,1])
+startVals_list[[111]] <- startVals_111 #llenar lista starting values
+fitted_br1_111 <- nls(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                      data = IR_data_ID111,
+                      start = startVals_111)
+sum_br1_111 <- summary(fitted_br1_111)
+sum_br1_111 
+boot_br1_111 <- nlsBoot(fitted_br1_111, niter = 999)
+coefs_111 <- data.frame(sum_br1_111$coefficients[,1:2],row.names = NULL)
+boot_111 <- data.frame(boot_br1_111$estiboot)
+Topt_est_111 <- Topt(Tmin=coefs_111[2,1],
+                     Tmax=coefs_111[3,1],
+                     m=2)
+Topt_se_111 <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
+                           coef(fitted_br1_111), vcov(fitted_br1_111))
+
+params_br1_111 <- data.frame(coefs_111[1,],
+                             coefs_111[2,],
+                             coefs_111[3,],
+                             Topt_est_111,
+                             Topt_se_111,
+                             boot_111[1,],
+                             boot_111[2,],
+                             boot_111[3,],
+                             startVals_111[1],
+                             startVals_111[2],
+                             startVals_111[3],
+                             "all")
+colnames(params_br1_111) <- c("a_est_nls","a_se_nls",
+                              "Tmin_est_nls","Tmin_se_nls",
+                              "Tmax_est_nls","Tmax_se_nls",
+                              "Topt_est","Topt_se_delta",
+                              "a_est_boot","a_se_boot",
+                              "Tmin_est_boot","Tmin_se_boot",
+                              "Tmax_est_boot","Tmax_se_boot",
+                              "starting_a","starting_Tmin",
+                              "starting_Tmax","which_signif")
+params_br1_111
+
+#### _ _ Study 112 ####
+IR_data_ID112 <- IR_data_all %>%
+  filter(id==112)
+par(mfrow=c(2,2))
+plot(IR_data_ID112$temperature,IR_data_ID112$growth_rate)
+plot(IR_data_ID112$temperature,briere1(a=0.00025,Tmin=12,Tmax=36,temp=IR_data_ID112$temperature))
+plot(IR_data_ID112$temperature,briere1(a=0.0002,Tmin=11,Tmax=36.5,temp=IR_data_ID112$temperature))
+plot(IR_data_ID112$temperature,briere1(a=0.00025,Tmin=11,Tmax=36.5,temp=IR_data_ID112$temperature))
+grid_br1_112 <- expand.grid(list(a=seq(0.0002,0.0003,by=0.00001),
+                                 Tmin=seq(8,18,by=0.5),
+                                 Tmax=seq(32,42,by=0.5)))
+fitted_br1_112 <- nls2(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                       data = IR_data_ID112,
+                       start = grid_br1_112,
+                       algorithm = "brute-force",
+                       trace = TRUE)
+sum_br1_112 <- summary(fitted_br1_112)
+# viendo esos parametros, buscamos starters cercanos para facilitar el ajuste
+startVals_112 <- c(sum_br1_112$coefficients[,1])
+startVals_list[[112]] <- startVals_112 #llenar lista starting values
+fitted_br1_112 <- nls(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                      data = IR_data_ID112,
+                      start = startVals_112)
+sum_br1_112 <- summary(fitted_br1_112)
+sum_br1_112 
+boot_br1_112 <- nlsBoot(fitted_br1_112, niter = 999)
+coefs_112 <- data.frame(sum_br1_112$coefficients[,1:2],row.names = NULL)
+boot_112 <- data.frame(boot_br1_112$estiboot)
+Topt_est_112 <- Topt(Tmin=coefs_112[2,1],
+                     Tmax=coefs_112[3,1],
+                     m=2)
+Topt_se_112 <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
+                           coef(fitted_br1_112), vcov(fitted_br1_112))
+
+params_br1_112 <- data.frame(coefs_112[1,],
+                             coefs_112[2,],
+                             coefs_112[3,],
+                             Topt_est_112,
+                             Topt_se_112,
+                             boot_112[1,],
+                             boot_112[2,],
+                             boot_112[3,],
+                             startVals_112[1],
+                             startVals_112[2],
+                             startVals_112[3],
+                             "all")
+colnames(params_br1_112) <- c("a_est_nls","a_se_nls",
+                              "Tmin_est_nls","Tmin_se_nls",
+                              "Tmax_est_nls","Tmax_se_nls",
+                              "Topt_est","Topt_se_delta",
+                              "a_est_boot","a_se_boot",
+                              "Tmin_est_boot","Tmin_se_boot",
+                              "Tmax_est_boot","Tmax_se_boot",
+                              "starting_a","starting_Tmin",
+                              "starting_Tmax","which_signif")
+params_br1_112
+
+#### _ _ Study 113 ####
+IR_data_ID113 <- IR_data_all %>%
+  filter(id==113)
+par(mfrow=c(2,2))
+plot(IR_data_ID113$temperature,IR_data_ID113$growth_rate)
+plot(IR_data_ID113$temperature,briere1(a=0.0003,Tmin=13,Tmax=39,temp=IR_data_ID113$temperature))
+plot(IR_data_ID113$temperature,briere1(a=0.00027,Tmin=13,Tmax=41,temp=IR_data_ID113$temperature))
+plot(IR_data_ID113$temperature,briere1(a=0.00022,Tmin=13,Tmax=40.5,temp=IR_data_ID113$temperature))
+grid_br1_113 <- expand.grid(list(a=seq(0.0002,0.0003,by=0.00001),
+                                 Tmin=seq(8,18,by=0.5),
+                                 Tmax=seq(34,44,by=0.5)))
+fitted_br1_113 <- nls2(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                       data = IR_data_ID113,
+                       start = grid_br1_113,
+                       algorithm = "brute-force",
+                       trace = TRUE)
+sum_br1_113 <- summary(fitted_br1_113)
+# viendo esos parametros, buscamos starters cercanos para facilitar el ajuste
+startVals_113 <- c(sum_br1_113$coefficients[,1])
+startVals_list[[113]] <- startVals_113 #llenar lista starting values
+fitted_br1_113 <- nls(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                      data = IR_data_ID113,
+                      start = startVals_113)
+sum_br1_113 <- summary(fitted_br1_113)
+sum_br1_113 
+boot_br1_113 <- nlsBoot(fitted_br1_113, niter = 999)
+coefs_113 <- data.frame(sum_br1_113$coefficients[,1:2],row.names = NULL)
+boot_113 <- data.frame(boot_br1_113$estiboot)
+Topt_est_113 <- Topt(Tmin=coefs_113[2,1],
+                     Tmax=coefs_113[3,1],
+                     m=2)
+Topt_se_113 <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
+                           coef(fitted_br1_113), vcov(fitted_br1_113))
+
+params_br1_113 <- data.frame(coefs_113[1,],
+                             coefs_113[2,],
+                             coefs_113[3,],
+                             Topt_est_113,
+                             Topt_se_113,
+                             boot_113[1,],
+                             boot_113[2,],
+                             boot_113[3,],
+                             startVals_113[1],
+                             startVals_113[2],
+                             startVals_113[3],
+                             "all")
+colnames(params_br1_113) <- c("a_est_nls","a_se_nls",
+                              "Tmin_est_nls","Tmin_se_nls",
+                              "Tmax_est_nls","Tmax_se_nls",
+                              "Topt_est","Topt_se_delta",
+                              "a_est_boot","a_se_boot",
+                              "Tmin_est_boot","Tmin_se_boot",
+                              "Tmax_est_boot","Tmax_se_boot",
+                              "starting_a","starting_Tmin",
+                              "starting_Tmax","which_signif")
+params_br1_113
+
+#### _ _ Study 114 ####
+IR_data_ID114 <- IR_data_all %>%
+  filter(id==114)
+par(mfrow=c(2,2))
+plot(IR_data_ID114$temperature,IR_data_ID114$growth_rate)
+plot(IR_data_ID114$temperature,briere1(a=0.00025,Tmin=13,Tmax=39,temp=IR_data_ID114$temperature))
+plot(IR_data_ID114$temperature,briere1(a=0.00027,Tmin=13,Tmax=41,temp=IR_data_ID114$temperature))
+plot(IR_data_ID114$temperature,briere1(a=0.00022,Tmin=13,Tmax=40.5,temp=IR_data_ID114$temperature))
+grid_br1_114 <- expand.grid(list(a=seq(0.0002,0.0003,by=0.00001),
+                                 Tmin=seq(8,18,by=0.5),
+                                 Tmax=seq(34,44,by=0.5)))
+fitted_br1_114 <- nls2(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                       data = IR_data_ID114,
+                       start = grid_br1_114,
+                       algorithm = "brute-force",
+                       trace = TRUE)
+sum_br1_114 <- summary(fitted_br1_114)
+# viendo esos parametros, buscamos starters cercanos para facilitar el ajuste
+startVals_114 <- c(sum_br1_114$coefficients[,1])
+startVals_list[[114]] <- startVals_114 #llenar lista starting values
+fitted_br1_114 <- nls(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                      data = IR_data_ID114,
+                      start = startVals_114)
+sum_br1_114 <- summary(fitted_br1_114)
+sum_br1_114 
+boot_br1_114 <- nlsBoot(fitted_br1_114, niter = 999)
+coefs_114 <- data.frame(sum_br1_114$coefficients[,1:2],row.names = NULL)
+boot_114 <- data.frame(boot_br1_114$estiboot)
+Topt_est_114 <- Topt(Tmin=coefs_114[2,1],
+                     Tmax=coefs_114[3,1],
+                     m=2)
+Topt_se_114 <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
+                           coef(fitted_br1_114), vcov(fitted_br1_114))
+
+params_br1_114 <- data.frame(coefs_114[1,],
+                             coefs_114[2,],
+                             coefs_114[3,],
+                             Topt_est_114,
+                             Topt_se_114,
+                             boot_114[1,],
+                             boot_114[2,],
+                             boot_114[3,],
+                             startVals_114[1],
+                             startVals_114[2],
+                             startVals_114[3],
+                             "all")
+colnames(params_br1_114) <- c("a_est_nls","a_se_nls",
+                              "Tmin_est_nls","Tmin_se_nls",
+                              "Tmax_est_nls","Tmax_se_nls",
+                              "Topt_est","Topt_se_delta",
+                              "a_est_boot","a_se_boot",
+                              "Tmin_est_boot","Tmin_se_boot",
+                              "Tmax_est_boot","Tmax_se_boot",
+                              "starting_a","starting_Tmin",
+                              "starting_Tmax","which_signif")
+params_br1_114
+
+#### _ _ Study 115 ####
+IR_data_ID115 <- IR_data_all %>%
+  filter(id==115)
+par(mfrow=c(2,2))
+plot(IR_data_ID115$temperature,IR_data_ID115$growth_rate)
+plot(IR_data_ID115$temperature,briere1(a=0.0003,Tmin=13,Tmax=37,temp=IR_data_ID115$temperature))
+plot(IR_data_ID115$temperature,briere1(a=0.00027,Tmin=13,Tmax=38.5,temp=IR_data_ID115$temperature))
+plot(IR_data_ID115$temperature,briere1(a=0.00022,Tmin=13,Tmax=39,temp=IR_data_ID115$temperature))
+grid_br1_115 <- expand.grid(list(a=seq(0.00015,0.00025,by=0.00001),
+                                 Tmin=seq(8,15,by=0.5),
+                                 Tmax=seq(34,44,by=0.5)))
+fitted_br1_115 <- nls2(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                       data = IR_data_ID115,
+                       start = grid_br1_115,
+                       algorithm = "brute-force",
+                       trace = TRUE)
+sum_br1_115 <- summary(fitted_br1_115)
+# viendo esos parametros, buscamos starters cercanos para facilitar el ajuste
+startVals_115 <- c(sum_br1_115$coefficients[,1])
+startVals_list[[115]] <- startVals_115 #llenar lista starting values
+fitted_br1_115 <- nls(formula= growth_rate ~ briere1(a,temp = temperature,Tmin,Tmax),
+                      data = IR_data_ID115,
+                      start = startVals_115)
+sum_br1_115 <- summary(fitted_br1_115)
+sum_br1_115 
+boot_br1_115 <- nlsBoot(fitted_br1_115, niter = 999)
+coefs_115 <- data.frame(sum_br1_115$coefficients[,1:2],row.names = NULL)
+boot_115 <- data.frame(boot_br1_115$estiboot)
+Topt_est_115 <- Topt(Tmin=coefs_115[2,1],
+                     Tmax=coefs_115[3,1],
+                     m=2)
+Topt_se_115 <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
+                           coef(fitted_br1_115), vcov(fitted_br1_115))
+
+params_br1_115 <- data.frame(coefs_115[1,],
+                             coefs_115[2,],
+                             coefs_115[3,],
+                             Topt_est_115,
+                             Topt_se_115,
+                             boot_115[1,],
+                             boot_115[2,],
+                             boot_115[3,],
+                             startVals_115[1],
+                             startVals_115[2],
+                             startVals_115[3],
+                             "all")
+colnames(params_br1_115) <- c("a_est_nls","a_se_nls",
+                              "Tmin_est_nls","Tmin_se_nls",
+                              "Tmax_est_nls","Tmax_se_nls",
+                              "Topt_est","Topt_se_delta",
+                              "a_est_boot","a_se_boot",
+                              "Tmin_est_boot","Tmin_se_boot",
+                              "Tmax_est_boot","Tmax_se_boot",
+                              "starting_a","starting_Tmin",
+                              "starting_Tmax","which_signif")
+params_br1_115
+
+
 #### 11. List of starting values ####
 startVals_list
 startVals_df <- startVals_list %>%
@@ -5993,5 +6334,36 @@ parameters <- df_list %>%
   bind_cols(ids) %>%
   mutate(id=...19) %>%
   select(-...19)%>%
+  group_by_all()%>%
+  summarise(id=sort(id))
+
   write_csv(file="parameters_briere1_by_study.csv")
+
+#### 13. Merge parameters df with info####
+parameters <- read_csv("parameters_briere1_by_study.csv")
+  
+colnames(IR_data_all)
+IR_data_all$id <- as.numeric(IR_data_all$id)
+variables <- c("order","family","feeding_guild",
+               "daylength","lat","lon","id") #columns of interest
+
+data4params <- IR_data_all %>%
+  select(order,family,feeding_guild,daylength,
+         lat,lon,id) %>%
+  set_colnames(variables)%>% #change variable names
+  group_by_all() %>%
+  summarise(id=unique(id)) %>%
+  arrange(id)
+  
+
+#select only those with estimated parameters
+filter_params <- unique(parameters$id)
+filter_params_vec <- as.vector(filter_params)
+
+dataset_params_metaanalysis <- data4params %>%
+  filter(id %in% filter_params)%>% #apply a filter with numbers contain in that vector
+  bind_cols(parameters) %>%
+  glimpse()
+
+write_csv(dataset_params_metaanalysis,file="dataset_params_metaanalysis.csv")  
 
