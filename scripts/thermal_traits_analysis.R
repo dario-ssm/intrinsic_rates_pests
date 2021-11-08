@@ -1,7 +1,10 @@
-#  
-#     Script: DATA ANALYSIS FOR SYSTEMATIC REVIEW:
-#     Aim: estimate response of pests (intrinsic rate of increase) to temperature
-#          across categorical variables (taxa, feeding guilds, host plant, etc)
+#### SCRIPT INFO ####     
+#     Authors: Darío San Segundo Molina, Sara Villén Pérez, Ignacio Morales Castilla
+#     Title: trait inferences
+#     Aim: explore trait trends after model fitting from INTRAPEST database
+#     Date: October 2021
+#_________________________ ####
+
 
 
 #### 1. Load Dataset ####
@@ -16,19 +19,19 @@ library(ggmap)
 library(performance)
 library(cowplot)
 library(wesanderson)
-thermal_traits_data_raw <- read_csv("/Users/Ecologia/Desktop/DARÍO_actualizada_30_06_2021/Intrinsic_metaanalysis/dataset_params_metaanalysis.csv") %>%
+thermal_traits_data_raw <- read_csv("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/dataset_params_metaanalysis.csv") %>%
   glimpse()
-
 ## apply filters 
-acari_raw <- thermal_traits_data_raw %>% #ensemble all acari
-  filter(order == "Acari>Prostigmata" | 
-           order == "Acari>Trombidiformes")%>%
-  mutate(order = "Acari")
-
+#NOT NECESSARY once the Analyses_nls&bootstrap script will have run
+#acari_raw <- thermal_traits_data_raw %>% #ensemble all acari
+ # filter(order == "Acari>Prostigmata" | 
+  #         order == "Acari>Trombidiformes")%>%
+  #mutate(order = "Acari")
+#thermal_traits_data <- thermal_traits_data_raw %>%
+ # filter(order != "Acari>Prostigmata" &
+  #         order != "Acari>Trombidiformes")%>%
+  # bind_rows(acari_raw)
 thermal_traits_data <- thermal_traits_data_raw %>%
-  filter(order != "Acari>Prostigmata" &
-           order != "Acari>Trombidiformes")%>%
-  bind_rows(acari_raw)%>%
   filter(Tmin_est_nls >0 &
          Tmin_se_nls <10 &
          Tmax_se_nls <10 &
@@ -43,6 +46,7 @@ Topt_est <- thermal_traits_data$Topt_est
 Topt_se <- thermal_traits_data$Topt_se_delta
 lat <- thermal_traits_data$lat
 lon <- thermal_traits_data$lon
+
 #### 2. Exploratory data analysis ####
 #### _ _ a) Tmin ####
 summary(Tmin_est)
@@ -55,12 +59,15 @@ shapiro.test(Tmax_est) #normal
 #### _ _ c) lon, lat ####
 summary(lat)
 hist(lat)    
-#create map along coordinates
+#create map along coordinates (prepared to insert in a colored background with transparent ocean)
 map <- ggplot(data = thermal_traits_data, aes(x = lon, y = lat)) +
-  borders("world", colour = "gray90", fill = "gray90") +
+  borders("world", colour = "transparent", fill = "white") +
   geom_point(aes(colour = order), alpha = 0.35, size = 3)+theme_classic()+
-  theme(legend.position = "bottom")
-
+  theme_void()+
+  theme(legend.position = "bottom",panel.background = element_rect(fill="transparent",color=NA))
+  
+map
+#ggsave("map_meta.png",height=15,width=25,units="cm",bg = "transparent")
 #### _ _ d) Topt ####
 summary(Topt_est)
 hist(Topt_est) #quite normal
@@ -192,10 +199,6 @@ Topt_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Topt_est))+
   theme_light()+
   theme(legend.position = "none")
 Topt_to_lat_plot_order
-
-
-# first: prepare tibble
-
 ####_ _ 4.2 Thermal traits across taxa ####
 #prepare dataframe
 counts <- thermal_traits_data %>%
@@ -383,5 +386,3 @@ tmax_anova_order <- lm(Tmax_est_nls~order,data=tmax_4anova)
 summary(tmax_anova_order) #no differences
 tmax_anova_guild <- lm(Tmax_est_nls~feeding_guild,data=tmax_4anova)
 summary(tmax_anova_guild) #only chewers are different from the others, with lower tmax
-
-# ####_ _ 4.3 Thermal traits from pooled regressions ####
