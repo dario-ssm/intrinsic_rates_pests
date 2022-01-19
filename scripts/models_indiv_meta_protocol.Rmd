@@ -24,7 +24,7 @@ Thermal traits database (from now on: [*TheTraPest*]{.smallcaps}) have been obta
 3.  Generalized Nonlinear Regression with `nlme::gnls()`
 4.  Parameter extraction and *TheTraPest* database assembly.
 
-```{r}
+```{r, echo = FALSE}
 thetrapest <- read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/thermal_traits_individual.csv") %>% 
   glimpse()
 thetrapest_weighted <- thetrapest %>% 
@@ -51,7 +51,7 @@ There are different issues that should be taken into account when performing a m
 
 ## Analyses: an example:
 
-```{r create training dataset with acari}
+```{r create training dataset with acari, echo = FALSE}
 acari <- thetrapest_weighted %>% 
   filter(order == "Acari") %>% 
   glimpse()
@@ -67,24 +67,21 @@ A summary analysis does not incorporate covariate. Note some assumptions:
 
 #### a) Random effects model with `nlme`
 
-```{r}
+```{r, echo = FALSE}
 tmax_sumeffect_nlme <- nlme::lme(Tmax_est ~ 1, 
                                random = ~ 1|id,
                                weights = ~ weights_tmax,
                                data = thetrapest_weighted)
 
-tmax_sumeffect_nlme
 tmin_sumeffect_nlme <- nlme::lme(Tmin_est ~ 1, 
                                random = ~ 1|id,
                                weights = ~ weights_tmin,
                                data = thetrapest_weighted)
-tmin_sumeffect_nlme
 
 topt_sumeffect_nlme <- nlme::lme(Topt_est ~ 1, 
                                random = ~ 1|id,
                                weights = ~ weights_topt,,
                                data = thetrapest_weighted)
-topt_sumeffect_nlme
 
 
 summary_nlme <- tibble(parameters = c("tmax", "tmin", "topt"),
@@ -110,7 +107,7 @@ kable(summary_nlme)
 
 As an example, the *summary effect* here for *T*~max~ would be an estimate of ***T***~**max**~ **= 36.51 ºC** with a between-study variance ***T^2^*** **= 7.75** (std. dev.) and *log-likelihood = -196.18.*
 
-#### b) Random effects model with `lmer` 
+#### b) Random effects model with `lmer`
 
 It gives an error saying that number of values in the grouping variable (*i.e.* study) must be lower than number of observations, being equal at this case.
 
@@ -123,3 +120,143 @@ Two questions arise:
     -   *Species* as random variable (examples in @kharouba2018 and @ettinger2020 ).
 
     -   Other groups as random nested (e.g. `random = ~ 1|family/id`)
+
+#### c) Random effects nested model with `nlme` :
+
+Same approach as *a)* but now incorporating order as nesting factor into the random component (it might be species, probably better-off). Same estimates, same id stdev (within-studies var) and additional Qbet for order.
+
+### Categorical covariates group analyses:
+
+Following @zuur2009a recommendations, we follow an approach from more complete model to more simple ones. Thus, the model would begin adding both `order`and `feeding_guild` covariates as well as its interaction (`order*feeding_guild`) and after model comparison and selection comparing AICs, we will progressively remove variables that are not informative.
+
+1.  **intercept-only**:
+
+In this case, we assume that grouping var (study) only affects the magnitude but not the relationship between *thermal trait* and *category*, either taxonomical or ecological.
+
+*trait = a_i\_study + beta_order_i + beta_feeding_guild_i + beta_order\*feeding_guild_i*
+
+-   `nlme::lme()`
+
+```{r, echo = FALSE}
+# intercept_full_tmin <- lme(Tmin_est ~ 1 + order + feeding_guild + order*feeding_guild,
+#                            weights = ~ weights_tmin,
+#                            random = ~ 1|id,
+#                            data = thetrapest_weighted)
+intercept_order_tmin <- lme(Tmin_est ~ 1 + order,
+                       weights = ~ weights_tmin,
+                       random = ~ 1|id,
+                       data = thetrapest_weighted)
+intercept_order_tmax <- lme(Tmax_est ~ 1 + order,
+                       weights = ~ weights_tmax,
+                       random = ~ 1|id,
+                       data = thetrapest_weighted)
+intercept_order_topt <- lme(Topt_est ~ 1 + order,
+                       weights = ~ weights_topt,
+                       random = ~ 1|id,
+                       data = thetrapest_weighted)
+
+
+
+
+
+intercept_feed_tmin <- lme(Tmin_est ~ 1 + feeding_guild,
+                       weights = ~ weights_tmin,
+                       random = ~ 1|id,
+                       data = thetrapest_weighted)
+# intercept_order_or_feed <- lme(Tmin_est ~ 1 + order + feeding_guild,
+#                                 weights = ~ weights_tmin,
+#                                 random = ~ 1|family,
+#                                 data = thetrapest_weighted)
+
+## see model output 
+# a) order
+## a.1. tmin
+order_levels <- unique(thetrapest_weighted$order)
+n_orders <- length(order_levels)
+summary_nlme_order_tmin <- tibble(parameter = rep("tmin", n_orders),
+                                  estimate = c(intercept_order_tmin$coefficients$fixed),
+                                  uncertainty = c(intercept_order_tmin$varFix[1,1],
+                                                  intercept_order_tmin$varFix[2,2],
+                                                  intercept_order_tmin$varFix[3,3],
+                                                  intercept_order_tmin$varFix[4,4],
+                                                  intercept_order_tmin$varFix[5,5],
+                                                  intercept_order_tmin$varFix[6,6],
+                                                  intercept_order_tmin$varFix[7,7]),
+                                  order = sort(order_levels),
+                                  between_stdy_var = rep(VarCorr(intercept_order_tmin)[1,2], n_orders),
+                                  within_stdy_var =  rep(VarCorr(intercept_order_tmin)[2,2], n_orders),
+                                  loglik = rep(intercept_order_tmin$logLik, n_orders)) %>% 
+  mutate(estimate = if_else(condition = row_number() == 1,
+                            true = estimate,
+                            false = first(estimate)+estimate),
+         std_dev = sqrt(uncertainty)) 
+                       
+## a.2. tmax
+summary_nlme_order_tmax <- tibble(parameter = rep("tmax", n_orders),
+                                  estimate = c(intercept_order_tmax$coefficients$fixed),
+                                  uncertainty = c(intercept_order_tmax$varFix[1,1],
+                                                  intercept_order_tmax$varFix[2,2],
+                                                  intercept_order_tmax$varFix[3,3],
+                                                  intercept_order_tmax$varFix[4,4],
+                                                  intercept_order_tmax$varFix[5,5],
+                                                  intercept_order_tmax$varFix[6,6],
+                                                  intercept_order_tmax$varFix[7,7]),
+                                  order = sort(order_levels),
+                                  between_stdy_var = rep(VarCorr(intercept_order_tmax)[1,2], n_orders),
+                                  within_stdy_var =  rep(VarCorr(intercept_order_tmax)[2,2], n_orders),
+                                  loglik = rep(intercept_order_tmax$logLik, n_orders)) %>% 
+  mutate(estimate = if_else(condition = row_number() == 1,
+                            true = estimate,
+                            false = first(estimate)+estimate),
+         std_dev = sqrt(uncertainty)) 
+
+## a.3. topt
+summary_nlme_order_topt <- tibble(parameter = rep("topt", n_orders),
+                                  estimate = c(intercept_order_topt$coefficients$fixed),
+                                  uncertainty = c(intercept_order_topt$varFix[1,1],
+                                                  intercept_order_topt$varFix[2,2],
+                                                  intercept_order_topt$varFix[3,3],
+                                                  intercept_order_topt$varFix[4,4],
+                                                  intercept_order_topt$varFix[5,5],
+                                                  intercept_order_topt$varFix[6,6],
+                                                  intercept_order_topt$varFix[7,7]),
+                                  order = sort(order_levels),
+                                  between_stdy_var = rep(VarCorr(intercept_order_topt)[1,2], n_orders),
+                                  within_stdy_var =  rep(VarCorr(intercept_order_topt)[2,2], n_orders),
+                                  loglik = rep(intercept_order_topt$logLik, n_orders)) %>% 
+  mutate(estimate = if_else(condition = row_number() == 1,
+                            true = estimate,
+                            false = first(estimate)+estimate),
+         std_dev = sqrt(uncertainty)) 
+
+### ensemble
+summary_nlme_order <- summary_nlme_order_tmin %>% 
+  bind_rows(summary_nlme_order_topt,
+            summary_nlme_order_tmax) %>% 
+  select(parameter, order, estimate, std_dev,between_stdy_var,within_stdy_var,loglik)
+kable(summary_nlme_order)
+```
+
+Error appear when incorporating either addition or interaction among order and feeding guild. Following some StackOverFlow discussions, we will better try with `lme4`packag
+
+-   `lme4::lmer()`
+
+```{r, echo = FALSE}
+# intercept_full_tmin <- lmer(Tmin_est  ~ 1 + order + feeding_guild + order*feeding_guild,
+#                            weights = ~ weights_tmin,
+#                            random = ~ 1|id,
+#                            data = thetrapest_weighted)
+# intercept_order_lme4 <- lmer(Tmin_est ~ 1 + order + (1|id),
+#                         weights = weights_tmin,
+#                         data = thetrapest_weighted)
+# intercept_feed <- lme(Tmin_est ~ 1 + feeding_guild,
+#                        weights = ~ weights_tmin,
+#                        random = ~ 1|id,
+#                        lmer()ted)
+# intercept_order_or_feed <- lme(Tmin_est ~ 1 + order + feeding_guild,
+#                                 weights = ~ weights_tmin,
+#                                random = ~ 1|family,
+#                               data = thetrapest_weighted)
+```
+
+Same error than before (id must be \< observations). Problems ... :S:S:S:S
