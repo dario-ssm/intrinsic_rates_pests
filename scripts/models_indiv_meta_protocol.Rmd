@@ -1,0 +1,125 @@
+---
+title: "Thermal_traits_metaanalysis_protocol"
+author: "Darío San Segundo Molina, Sara Villén Pérez & Ignacio Morales Castilla"
+date: "19/1/2022"
+output: html_document
+bibliography: references.bib
+csl: ecography.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(nlme)
+library(knitr)
+library(lme4)
+```
+
+## Thermal traits pest database:
+
+Thermal traits database (from now on: [*TheTraPest*]{.smallcaps}) have been obtained after several steps:
+
+1.  Literature systematic review
+2.  Data preparation: [*Intrapest*]{.smallcaps} database assembly.
+3.  Generalized Nonlinear Regression with `nlme::gnls()`
+4.  Parameter extraction and *TheTraPest* database assembly.
+
+```{r}
+thetrapest <- read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/thermal_traits_individual.csv") %>% 
+  glimpse()
+thetrapest_weighted <- thetrapest %>% 
+  mutate(weights_tmax = 1/Tmax_se,
+         weights_tmin = 1/Tmin_se,
+         weights_topt = 1/Topt_se,
+         id = as_factor(id)
+         )
+```
+
+## Background on meta-analyses and thermal-traits modelling procedures:
+
+#### Statistical models:
+
+We follow considerations of other recent meta-analytical hierarchical models that have been carried out for physiological traits as it is our case [@kharouba2018; @ettinger2020; @buckley2017]. Similarly, except for origin of the data, similar hierarchical models have been used for thermal traits variability [@herrando-pÃ©rez2020]; whereas other approaches used more complex analyses such as random forest [@bennett2021].
+
+Accordingly, we will use comparative analyses following different approaches and packages in R [@rcoreteam2021]: *linear mixed-effects* (i.e. *hierarchical*) *regression* with `nlme` package as in @buckley2017 and alternatively with `metafor` package [@viechtbauer2010]. In addition, to avoid model assumption caveats, we performed a Bayesian hierarchical model as in @kharouba2018 using Stan-compiled `brms` package [@bürkner2017] for R.
+
+All models were considered for meta-analysis following existing guidelines in Maximum likelihood [@mengersen2013] and Bayesian Inference approaches [@schmid2013] on a mixed-effect modelling baseline [@zuur2009a].
+
+#### Meta-analysis features:
+
+There are different issues that should be taken into account when performing a meta-analysis in ecology: assessment of publication bias and heterogeneity quantification, an appropriate weighting decision and existence of different conditions such as independency between effect size estimators, collinearity among covariates and between-study consistency [@nakagawa2017; @koricheva2014]. Including specific tools such as forest plots, bubble plots, funnel plots and sensitivity analyses to assess and visualize these issues is helpful to detect signal amid noise [@gurevitch2018] and, thus, a recommended (if not mandatory) reliability practice when conducting meta-analysis according to reference manuals )insert ref).
+
+## Analyses: an example:
+
+```{r create training dataset with acari}
+acari <- thetrapest_weighted %>% 
+  filter(order == "Acari") %>% 
+  glimpse()
+```
+
+### Summary analysis:
+
+A summary analysis does not incorporate covariate. Note some assumptions:
+
+1.  Model assumes normality (at least by now)
+2.  Weights must be incorporated with inverse variances of each study
+3.  
+
+#### a) Random effects model with `nlme`
+
+```{r}
+tmax_sumeffect_nlme <- nlme::lme(Tmax_est ~ 1, 
+                               random = ~ 1|id,
+                               weights = ~ weights_tmax,
+                               data = thetrapest_weighted)
+
+tmax_sumeffect_nlme
+tmin_sumeffect_nlme <- nlme::lme(Tmin_est ~ 1, 
+                               random = ~ 1|id,
+                               weights = ~ weights_tmin,
+                               data = thetrapest_weighted)
+tmin_sumeffect_nlme
+
+topt_sumeffect_nlme <- nlme::lme(Topt_est ~ 1, 
+                               random = ~ 1|id,
+                               weights = ~ weights_topt,,
+                               data = thetrapest_weighted)
+topt_sumeffect_nlme
+
+
+summary_nlme <- tibble(parameters = c("tmax", "tmin", "topt"),
+                       estimates = c(tmax_sumeffect_nlme$coefficients$fixed,
+                                     tmin_sumeffect_nlme$coefficients$fixed,
+                                     topt_sumeffect_nlme$coefficients$fixed),
+                        between_stdy_var = c(VarCorr(tmax_sumeffect_nlme)[1,2],
+                                            VarCorr(tmin_sumeffect_nlme)[1,2],
+                                            VarCorr(topt_sumeffect_nlme)[1,2]
+                                            ),
+                        within_stdy_var = c(VarCorr(tmax_sumeffect_nlme)[2,2],
+                                           VarCorr(tmin_sumeffect_nlme)[2,2],
+                                           VarCorr(topt_sumeffect_nlme)[2,2]
+                                           ),
+                       loglik = c(tmax_sumeffect_nlme$logLik,
+                                  tmin_sumeffect_nlme$logLik,
+                                  topt_sumeffect_nlme$logLik)
+)
+                       
+kable(summary_nlme)
+
+```
+
+As an example, the *summary effect* here for *T*~max~ would be an estimate of ***T***~**max**~ **= 36.51 ºC** with a between-study variance ***T^2^*** **= 7.75** (std. dev.) and *log-likelihood = -196.18.*
+
+#### b) Random effects model with `lmer` 
+
+It gives an error saying that number of values in the grouping variable (*i.e.* study) must be lower than number of observations, being equal at this case.
+
+Two questions arise:
+
+1.  Should we group observations treated as different studies when they were obtained from the same study but from different treatments (e.g. different geographical locations or different species but same genus)? --> *studies 53 vs. 59 and 55-58.*
+
+2.  Should we incorporate nesting groups?
+
+    -   *Species* as random variable (examples in @kharouba2018 and @ettinger2020 ).
+
+    -   Other groups as random nested (e.g. `random = ~ 1|family/id`)
