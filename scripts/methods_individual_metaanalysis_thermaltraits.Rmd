@@ -1,0 +1,212 @@
+---
+title: "Individual meta-analysis methods"
+author: "Darío San-Segundo-Molina, Ignacio Morales-Castilla, Sara Villén-Pérez;"
+date: "13/1/2022"
+output: html_document
+references: references.bib
+csl: ecography.csl
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(brms)
+library(nlme)
+```
+
+## Thermal traits pest database:
+
+Thermal traits database (from now on: [*TheTraPest*]{.smallcaps}) have been obtained after several steps:
+
+1.  Literature systematic review
+2.  Data preparation: [*Intrapest*]{.smallcaps} database assembly.
+3.  Generalized Nonlinear Regression with `nlme::gnls()`
+4.  Parameter extraction and *TheTraPest* database assembly.
+
+```{r}
+thetrapest <- read_csv("thermal_traits_individual.csv") %>% 
+  glimpse()
+```
+
+## Background on meta-analyses and thermal-traits modelling procedures:
+
+#### Statistical models:
+
+We follow considerations of other recent meta-analytical hierarchical models that have been carried out for physiological traits as it is our case [@kharouba2018; @ettinger2020; @buckley2017]. Similarly, except for origin of the data, similar hierarchical models have been used for thermal traits variability [@herrando-pérez2020]; whereas other approaches used more complex analyses such as random forest [@bennett2021].
+
+Accordingly, we will use comparative analyses following different approaches and packages in R [@rcoreteam2021]: *linear mixed-effects* (i.e. *hierarchical*) *regression* with `nlme` package as in @buckley2017 and alternatively with `metafor` package [@viechtbauer2010]. In addition, to avoid model assumption caveats, we performed a Bayesian hierarchical model as in @kharouba2018 using Stan-compiled `brms` package [@bürkner2017] for R.
+
+#### Meta-analysis features:
+
+There are different issues that should be taken into account when performing a meta-analysis in ecology: assessment of publication bias and heterogeneity quantification, an appropriate weighting decission and existence of different conditions such as independency between effect size estimators, collinearity among covariates and between-study consistency [@nakagawa2017; @koricheva2014]. Including specific tools such as forest plots, bubble plots, funnel plots and sensitivity analyses to assess and visualize these issues is helpful to detect signal amid noise [@gurevitch2018] and, thus, a recommended (if not mandatory) reliability practice when conducting meta-analysis according to reference manuals )insert ref).
+
+## Analyses: methods
+
+#### Model asssumptions:
+
+Meta-analysis classical methodologies relies on assumptions of normality of the parameter estimates when a non standard effect size metric is used [@handbook2013]. Consequently, we checked normality distribution of the parameters using histograms and Shapiro-tests and using `performance` package to check the model assumptions. These assumptions are not required to be accomplished in the Bayesian approach described below.
+
+1.  **Normality**:
+
+Via histograms:
+
+```{r echo=TRUE}
+## via histograms
+#Tmin
+lm_tmin <- lm(Tmin_est ~ id,
+              data = thetrapest)
+tmin_resid <- lm_tmin$residuals %>% 
+  as_tibble()
+
+hist_Tmin_est <- ggplot(tmin_resid, aes(value))+
+  geom_histogram(fill = "cadetblue3", binwidth = 1)+
+  theme_classic()
+
+#Tmax
+lm_tmax <- lm(Tmax_est ~ id,
+              data = thetrapest)
+tmax_resid <- lm_tmax$residuals %>% 
+  as_tibble()
+
+hist_Tmax_est <- ggplot(tmax_resid, aes(value))+
+  geom_histogram(fill = "firebrick2", binwidth = 1)+
+  theme_classic()
+
+#Topt
+lm_topt <- lm(Topt_est ~ id,
+              data = thetrapest)
+topt_resid <- lm_topt$residuals %>% 
+  as_tibble()
+
+
+hist_Topt_est <- ggplot(topt_resid, aes(value))+
+  geom_histogram(fill = "purple2", binwidth = 1)+
+  theme_classic()
+
+grid_histo <- cowplot::plot_grid(hist_Tmin_est,hist_Tmax_est,hist_Topt_est,nrow = 1)
+grid_histo
+
+map(thetrapest %>% 
+      select(Tmin_est, 
+             Tmax_est, 
+             Topt_est), 
+    shapiro.test)
+```
+
+and via tests:
+
+```{r}
+shapiro.test(thetrapest$Tmin_est)
+shapiro.test(thetrapest$Tmax_est)
+shapiro.test(thetrapest$Topt_est)
+
+## NO NORMALITY... let's eliminate outliers
+
+```
+
+And without outliers:
+
+```{r}
+thetrapest_filter <- thetrapest %>% 
+  filter(Tmin_est >=-5 & 
+         Tmax_est <=60)
+  
+## via histograms
+#Tmin
+lm_tmin <- lm(Tmin_est ~ id,
+              data = thetrapest_filter)
+tmin_resid <- lm_tmin$residuals %>% 
+  as_tibble()
+
+hist_Tmin_est <- ggplot(tmin_resid, aes(value))+
+  geom_histogram(fill = "cadetblue3", binwidth = 1)+
+  theme_classic()
+
+#Tmax
+lm_tmax <- lm(Tmax_est ~ id,
+              data = thetrapest_filter)
+tmax_resid <- lm_tmax$residuals %>% 
+  as_tibble()
+
+hist_Tmax_est <- ggplot(tmax_resid, aes(value))+
+  geom_histogram(fill = "firebrick2", binwidth = 1)+
+  theme_classic()
+
+#Topt
+lm_topt <- lm(Topt_est ~ id,
+              data = thetrapest_filter)
+topt_resid <- lm_topt$residuals %>% 
+  as_tibble()
+
+
+hist_Topt_est <- ggplot(topt_resid, aes(value))+
+  geom_histogram(fill = "purple2", binwidth = 1)+
+  theme_classic()
+
+grid_histo <- cowplot::plot_grid(hist_Tmin_est,hist_Tmax_est,hist_Topt_est,nrow = 1)
+grid_histo
+
+map(thetrapest_filter %>% 
+      select(Tmin_est, 
+             Tmax_est, 
+             Topt_est), 
+    shapiro.test)
+```
+
+It gets much better after cleaning outliers (these outliers come from huge standard errors of model fitting, so they are not biologically meaningful).
+
+But let's check out the residuals and other assumptions with `performance` .
+
+```{r}
+library(performance)
+performance::check_model(lm_tmin)
+performance::check_model(lm_tmax)
+performance::check_model(lm_topt)
+
+
+# not THAT bad
+```
+
+(done for filtered dataset, we might need to change this).
+
+#### Summary effects analysis:
+
+For summary effect will be computed after applying a random-effects model with *study* treated as the grouping variable, and each parameterised thermal trait (*i.e.* *T*<sub>min</sub>, *T*<sub>max</sub> and *T*<sub>opt</sub>) as the standardized effect size, following guidelines by @handbook2013. Estimation of the summary effect was computed following @introduc2009.
+
+```{r}
+library(nlme)
+random_tmin <- lme(Tmin_est ~ 1id,
+                   random = list(id),
+                   data = thetrapest_filter)
+```
+
+#### Heterogeneity of estimates:
+
+To quantify heterogeneity of the response along categorical or numerical variables, we performed hierarchical linear models (also known as *mixed-effects*) with *study* being treated again as grouping variable and variables of interest as covariates.
+
+-   For **continuous covariates** (i.e. latitude in absolute value), we performed a *meta-regression* (as in @buckley2017 and @deutsch2008 ) with each thermal trait estimate as response variable. Heterogeneity was quantified with *between-studies* explained proportion of variance (*I*<sup>2</sup>) and a new *R*<sup>2</sup> coming from a Q-test [@introduc2009].
+
+-   For **categorical variables**, we performed hierarchical factorial models [@handbook2013] across categorical covariates such as *taxonomic order*, *feeding guild* and combinations of both. In these cases we quantified heterogeneity in a similar way than for covariates, without meta-regression considerations following @introduc2009
+
+In both cases, weights and heterogeneity estimators were computed following reference books [@handbook2013; @introduc2009].
+
+#### Heterogeneity of variation:
+
+Aiming to explore biogeographical hypothesis of *cold-tolerance* \[@bennett2021a; @sunday2019; @herrando-pérez2020\], we examined how variability of estimates differs among thermal traits. (blablabla) and across latitudes \[@deutsch2008a; @buckley2017\]. Following @herrando-pérez2020, we examined variability using boxplots and tests of variance homogeneity such as Levene's. (interesting if we repeat the batches process by them?).
+
+¿t-test? see possibilities here.
+
+#### Bayesian approach
+
+bla, blablabla, blabla
+
+#### Sensitivity analyses:
+
+bla, blablabla, blab
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
