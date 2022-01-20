@@ -13,7 +13,18 @@ library(tidyverse)
 library(nlme)
 library(knitr)
 library(lme4)
+library(svglite)
+library(nlstools)
+library(nls2)
+library(msm)
+library(magrittr)
+library(cowplot)
+library(car)
+library(brms)
+
 ```
+
+# Individual-study approach:
 
 ## Thermal traits pest database:
 
@@ -260,3 +271,117 @@ Error appear when incorporating either addition or interaction among order and f
 ```
 
 Same error than before (id must be \< observations). Problems ... :S:S:S:S
+
+# Pooled simulated data approach
+
+Simulations were obtained assuming normal distribution with mean = sample mean and variance = sampling variance, then applied to each study accounting for their sample size. We obtained then the `IR_data_sim dataset`.
+
+## Summary effect:
+
+### 1. Random-intercept
+
+#### *a) Random-intercept and single fixed:*
+
+`model1 <- nlme(model = r ~briere1(a, temp, Tmin, Tmax), fixed = a + Tmin +  Tmax  ~ 1, random = a + Tmin + Tmax ~ 1|id, start = starts_all_sim_sens, weights = varExp(), data = IR_data_sim_sens, na.action = na.exclude, control = nlmeControl(msMaxIter = 100, pnlstol = 1, msVerbose = TRUE)`
+
+```{r, include=FALSE}
+IR_data_sim_sens <- read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_data_complete_sim.csv") %>% 
+  filter(id != 19 &
+         id != 47)
+grid_br1_sim_sens <- expand.grid(list(a=seq(9e-05,2e-04,by=1e-05),
+                                  Tmin=seq(-5,10,by=0.5),
+                                  Tmax=seq(33,48,by=0.5)))
+fitted_br1_sim_sens_brute<- nls2(formula= r ~ briere1(a,temp,Tmin,Tmax),
+                             data = IR_data_sim_sens,
+                             start = grid_br1_sim_sens,
+                             algorithm = "brute-force",
+                             trace = FALSE)
+sum_brute_sim_sens <- summary(fitted_br1_sim_sens_brute)
+starts_all_sim_sens <- sum_brute_sim_sens$parameters[,1]
+nlme_br1_all_varExp_sim_sens <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
+                                 start = starts_all_sim_sens,
+                                 fixed = a+Tmin+Tmax ~1,
+                                 random effects = a+Tmin+Tmax ~ 1| id
+                                 #random =a+Tmin+Tmax~1|id,
+                                 data = IR_data_sim_sens,
+                                 weights = varExp(),
+                                 na.action=na.exclude,
+                                 control = nlmeControl(pnlsTol = 1,
+                                                       msMaxIter = 100,
+                                                       msVerbose = TRUE))#to avoid error of singularity in backsolve at level 0; block 1
+sum_nlme_all_sim_sens_varExp <- summary(nlme_br1_all_varExp_sim_sens)
+AIC_varExp_sim_without <- AIC(nlme_br1_all_varExp_sim_sens)
+loglik_varExp_sim_without <- logLik(nlme_br1_all_varExp_sim_sens)[1]
+params_varExp_sim_without <- sum_nlme_all_sim_sens_varExp$tTable[,1]
+varExp_coef_sim_without <- sum_nlme_all_sim_sens_varExp$modelStruct$varStruct[1]
+overview_nlme_all_varExp_sim_without <- tibble(a = params_varExp_sim_without[1],
+                                               se_a = sum_nlme_all_sim_sens_varExp$tTable[1,2],
+                                               Tmin = params_varExp_sim_without[2],
+                                               se_Tmin = sum_nlme_all_sim_sens_varExp$tTable[2,2],
+                                               Tmax = params_varExp_sim_without[3],
+                                               se_Tmax = sum_nlme_all_sim_sens_varExp$tTable[3,2],
+                                               Topt =  Topt(Tmin = params_varExp_sim_without[2],
+                                                            Tmax = params_varExp_sim_without[3],
+                                                            m=2),
+                                               se_Topt = "to be completed",### complete it with Topt_se deltaMethod
+                                               varExp_coef = varExp_coef_sim_without,
+                                               AIC = AIC_varExp_sim_without,
+                                               log_likelihood = loglik_varExp_sim_without)
+
+kable(overview_nlme_all_varExp_sim_without)
+```
+
+```{r}
+mod1 <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
+                                 start = starts_all_sim_sens,
+                                 fixed = a+Tmin+Tmax ~1,
+                                 random =a+Tmin+Tmax~1|id,
+                                 data = IR_data_sim_sens,
+                                 weights = varExp(),
+                                 na.action=na.exclude,
+                                 control = nlmeControl(pnlsTol = 1,
+                                                       msMaxIter = 100,
+                                                       msVerbose = TRUE))
+mod1
+```
+
+#### *b) Random-intercept and fixed for temperature?*
+
+```{r}
+starts_new <- c(starts_all_sim_sens[1],
+                starts_all_sim_sens[1],
+                starts_all_sim_sens[2],
+                starts_all_sim_sens[2],
+                starts_all_sim_sens[3],
+                starts_all_sim_sens[3])
+mod2 <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
+                                 start = starts_new,
+                                 fixed = a+Tmin+Tmax ~ temp,
+                                 random = a+Tmin+Tmax ~ 1|id,
+                                 data = IR_data_sim_sens,
+                                 weights = varExp(),
+                                 na.action=na.exclude,
+                                 control = nlmeControl(pnlsTol = 10,
+                                                       msMaxIter = 100,
+                                                       msVerbose = TRUE))
+```
+
+See error for confounding factors here: <https://stackoverflow.com/questions/50505290/singularity-in-backsolve-at-level-0-block-1-in-lme-model>
+
+### 2. Random-intercept-and-slope
+
+#### *a) Random-intercept-and-slope, single fixed:*
+
+```{r}
+mod3 <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
+                                 start = starts_all_sim_sens,
+                                 fixed = a+Tmin+Tmax ~ 1,
+                                 random =a+Tmin+Tmax ~ 1 + 1|id,
+                                 data = IR_data_sim_sens,
+                                 weights = varExp(),
+                                 na.action=na.exclude,
+                                 control = nlmeControl(pnlsTol = 1,
+                                                       msMaxIter = 100,
+                                                       msVerbose = TRUE))#
+mod3
+```
