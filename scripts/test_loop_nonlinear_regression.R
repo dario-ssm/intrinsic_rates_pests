@@ -30,7 +30,7 @@ library(car)
 library(nlme)
 library(brms)
 #load data:
-IR_data <-read_csv("~/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_metaanalysis_suitable.csv") %>%
+IR_data <-read_csv("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data/IR_metaanalysis_suitable.csv") %>%
   filter(Filter_3 == "yes") %>% #select only those which have passed the filter 3 in the source csv
   #mutate(growth_rate = replace(growth_rate, growth_rate <= 0,0))%>% #we assign 0 to negative values of intrinsic rates (biological nonsense?)
   filter(as.numeric(temperature)<50) %>% #exclude possible missleading points
@@ -919,7 +919,7 @@ IR_data_33_extra <-  IR_data_all %>%
   summarise_all(unique) %>%
   select(-temperature)
 IR_data_33 <- IR_data_33_numvars %>%
-  bind_cols(IR_data_34_extra)
+  bind_cols(IR_data_33_extra)
 ### 34
 species_34 <- IR_data_all %>% filter(id==34) %>% distinct(species) %>% select(species) #only requires to separate species
 names_species_34 <- species_34$species
@@ -1031,7 +1031,6 @@ IR_data_all_rev <- IR_data_all %>%
   arrange(id)  #problems with that paper which only has two treatments (we need three to gnls operation)
 IR_data_all <- IR_data_all_rev #recover original name of the tibble
 #now set wd:
-setwd("C:/Users/Ecologia/Desktop/DAR?O_actualizada septiembre 2021/Intrinsic_metaanalysis/simulations") #to save plots here together
 distinct_ids <- IR_data_all %>%  
   distinct(id)
 ID <- rep(1:length(distinct_ids$id), each = 100)
@@ -1049,10 +1048,10 @@ myList <- tibble(a_est = rep(NA,length(ID)), #create a list to use as replacemen
 
 params_br1_individual <- tibble(id=ID,myList)
 
-for (i in ID){ #para cada valor entre los que est?n en nuestro vector ("Study" or "id"; es decir, del 1 al 56)
+for (i in unique(ID)){ #para cada valor entre los que est?n en nuestro vector ("Study" or "id"; es decir, del 1 al 56)
   IR_data_ID <- IR_data_all %>% #subset con el conjunto que hacemos en cada iteraci?n
     filter(id==i)
-  png(filename = paste0("/Users/Ecologia/Desktop/DAR?O_actualizada septiembre 2021/Intrinsic_metaanalysis/Explore/explore_",i,".png"))
+  png(filename = paste0("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data_",i,".png"))
   plot(IR_data_ID$temperature,IR_data_ID$growth_rate) #ploteamos y guardamos un plot para tenerlos todos luego
   dev.off()
   iterative_simul_ID <- params_br1_individual %>% 
@@ -1140,7 +1139,7 @@ for (i in ID){ #para cada valor entre los que est?n en nuestro vector ("Study" o
                      starting_a,
                      starting_Tmin,
                      starting_Tmax)
-    iterative_simul_ID[100*(id-1)+nrep,] <- tibble(myList)
+    iterative_simul_ID[nrep,] <- tibble(myList)
     
     
   }
@@ -1148,214 +1147,13 @@ for (i in ID){ #para cada valor entre los que est?n en nuestro vector ("Study" o
   params_br1_individual[((i-1)*100+1):(i*100),] <- iterative_simul_ID
   }
 
-params_br1_individual
+params_br1_individual 
+View(params_br1_individual)
+write_csv(params_br1_individual,"repeated_simul_parameters.csv")
 
 
 
-
-
-
-repeat_params_br1_individual <- params_br1_individual %>% 
-  filter(starting_Tmin  == 0) %>% 
-  distinct(id)
-ids_rept <- repeat_params_br1_individual$id
-
-# and loop for those
-for (i in 1:length(ids_rept)){
-  print(ids_rept[i])  #primero ver por qu? iteraci?n vamos
-  IR_data_ID <- IR_data_all %>% #subset con el conjunto que hacemos en cada iteraci?n
-    filter(id==ids_rept[i])
-  png(filename = paste0("/Users/Ecologia/Desktop/DAR?O_actualizada septiembre 2021/Intrinsic_metaanalysis/Explore/explore_",i,".png"))
-  plot(IR_data_ID$temperature,IR_data_ID$growth_rate) #ploteamos y guardamos un plot para tenerlos todos luego
-  dev.off()
-  temp_ID <- IR_data_ID %>% filter(id==ids_rept[i]) %>% select(temperature)  # first we assume normal distribution
-  simul_ID <- tibble(id =rep(i,IR_data_ID %>% filter(id==ids_rept[i]) %>% select(n_1) %>% summarise(n_1=sum(n_1))),
-                     "temp"=0,
-                     "r"=0)
-  enes <-IR_data_ID %>% filter(id==ids_rept[i]) %>% select(n_1)
-  position <- cumsum(enes)-enes[1]+1
-  iter_temp <- 1:length(temp_ID$temperature)
-  for (num in iter_temp){
-    simul_ID$temp[position$n_1[num]:(position$n_1[num]-1+enes$n_1[num])] <- rep(temp_ID$temperature[num], each = enes$n_1[num])
-  }
-  simul_ID
-  
-  for(t in 1:length(temp_ID$temperature)){
-    
-    temper <- as.numeric(temp_ID[t,])
-    n <-  as.numeric(IR_data_ID %>% filter(id==ids_rept[i] & temperature==temper)%>% select(n_1))
-    mu <- as.numeric(IR_data_ID %>% filter(id==ids_rept[i] & temperature==temper)%>% select(growth_rate))
-    sd <-as.numeric(IR_data_ID %>% filter(id==ids_rept[i] & temperature==temper)%>% select(stdev))
-    sim_r <- rnorm(n,mu,sd)
-    simul_ID[simul_ID$temp == temper,"r"] <- tibble(sim_r) 
-  }
-  write_csv(simul_ID,file = paste0("/Users/Ecologia/Desktop/DAR?O_actualizada septiembre 2021/Intrinsic_metaanalysis/simulations/simulated_data_study_id_",i,".csv"))
-  print("brute-force starVals searching along grid begins")
-  grid_br1_ID <- expand.grid(list(a=seq(1e-05,6e-04,by=1e-05),
-                                  Tmin=seq(-5,21.5,by=1),
-                                  Tmax=seq(25.5,48,by=1)))
-  fitted_br1_ID_brute <- nls2(formula= r ~ briere1(a,temp = temp,Tmin,Tmax),
-                              data = simul_ID,
-                              start = grid_br1_ID,
-                              algorithm = "brute-force",
-                              trace = FALSE)
-  sum_grid_ID <- summary(fitted_br1_ID_brute) #save the summary of this first scan
-  starVals_ID <- sum_grid_ID$parameters[,1] #these are the starting values for
-  print("fitting model begins")
-  print(i)
-  skip_to_next <- FALSE
-  tryCatch({
-    fitted_br1_ID_gnls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
-                               data = simul_ID,
-                               start = starVals_ID,
-                               weights = varExp(),
-                               control = gnlsControl(nlsTol = 1e-2))},
-    error = function(e){ skip_to_next <<- TRUE})
-  if(skip_to_next){ next }
-  
-  sum_br1_ID <- summary(fitted_br1_ID_gnls)
-  coefs_ID <- data.frame(coef(sum_br1_ID)[,1:2],row.names = NULL)
-  Topt_est_ID <- Topt(Tmin=coefs_ID[2,1],
-                      Tmax=coefs_ID[3,1],
-                      m=2)
-  Topt_se_ID <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
-                            coef(fitted_br1_ID_gnls), vcov(fitted_br1_ID_gnls))
-  
-  #output -->
-  id <- ids_rept[i]
-  a_est <-     coef(sum_br1_ID)[1,1]
-  a_se <-      coef(sum_br1_ID)[1,2]
-  Tmin_est <-  coef(sum_br1_ID)[2,1]
-  Tmin_se <-   coef(sum_br1_ID)[2,2]
-  Tmax_est <-  coef(sum_br1_ID)[3,1]
-  Tmax_se <-   coef(sum_br1_ID)[3,2]
-  Topt_est <-  Topt_est_ID
-  Topt_se <-   Topt_se_ID
-  starting_a <-  starVals_ID[1]
-  starting_Tmin <- starVals_ID[2]
-  starting_Tmax <-  starVals_ID[3]
-  myList <- tibble(a_est, #create a list to use as replacement of NAs in dplyr format
-                   a_se,
-                   Tmin_est,
-                   Tmin_se, 
-                   Tmax_est,
-                   Tmax_se, 
-                   Topt_est,
-                   Topt_se,
-                   starting_a,
-                   starting_Tmin,
-                   starting_Tmax)
-  params_br1_individual[params_br1_individual$id==ids_rept[i],-1] <- tibble(myList)
-  }
-
-params_br1_individual
-# they do not fit anyway... let's fit them individually with lower convergence criterion
-individual_fitting_manualy <- params_br1_individual %>% 
-  filter(starting_Tmin == 0) %>% 
-  distinct(id) %>% 
-  glimpse() #19, 35, 45, 51
-
-## both 19 and 45 (former 47 before removing two-temperature treatment studies)
-## were disregarded in previous sections due to non-sense std values
-# 35
-id35_to_fit <- read_csv("simulated_data_study_id_35.csv")  
-grid_br1_ID <- expand.grid(list(a=seq(1e-05,2e-04,by=1e-05),
-                                Tmin=seq(0,18,by=1),
-                                Tmax=seq(25.5,48,by=1)))
-
-fitted_br1_35_brute <- nls2(formula= r ~ briere1(a,temp = temp,Tmin,Tmax),
-                            data = id35_to_fit,
-                            start = grid_br1_ID,
-                            algorithm = "brute-force",
-                            trace = FALSE)
-sum_grid_35 <- summary(fitted_br1_35_brute) #save the summary of this first scan
-starVals_35 <- sum_grid_35$parameters[,1] #these are the starting values for
-fitted_br1_35_gnls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
-                             data = id35_to_fit,
-                             start = starVals_35,
-                             weights = varExp(),
-                             control = gnlsControl(nlsTol = 1e-2))  
-sum_br1_35 <- summary(fitted_br1_35_gnls)
-coefs_35 <- data.frame(coef(sum_br1_35)[,1:2],row.names = NULL)
-Topt_est_35 <- Topt(Tmin=coefs_35[2,1],
-                    Tmax=coefs_35[3,1],
-                    m=2)
-Topt_se_35 <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
-                          coef(fitted_br1_35_gnls), vcov(fitted_br1_35_gnls))
-
-a_est <-     coef(sum_br1_35)[1,1]
-a_se <-      coef(sum_br1_35)[1,2]
-Tmin_est <-  coef(sum_br1_35)[2,1]
-Tmin_se <-   coef(sum_br1_35)[2,2]
-Tmax_est <-  coef(sum_br1_35)[3,1]
-Tmax_se <-   coef(sum_br1_35)[3,2]
-Topt_est <-  Topt_est_ID
-Topt_se <-   Topt_se_ID
-starting_a <-  starVals_ID[1]
-starting_Tmin <- starVals_ID[2]
-starting_Tmax <-  starVals_ID[3]  
-myList <- tibble(a_est, #create a list to use as replacement of NAs in dplyr format
-                 a_se,
-                 Tmin_est,
-                 Tmin_se, 
-                 Tmax_est,
-                 Tmax_se, 
-                 Topt_est,
-                 Topt_se,
-                 starting_a,
-                 starting_Tmin,
-                 starting_Tmax)
-params_br1_individual[params_br1_individual$id==35,-1] <- tibble(myList)
-
-# 51 
-id51_to_fit <- read_csv("simulated_data_study_id_51.csv")  
-grid_br1_ID <- expand.grid(list(a=seq(1e-05,2e-04,by=1e-05),
-                                Tmin=seq(0,18,by=1),
-                                Tmax=seq(25.5,48,by=1)))
-
-fitted_br1_51_brute <- nls2(formula= r ~ briere1(a,temp = temp,Tmin,Tmax),
-                            data = id51_to_fit,
-                            start = grid_br1_ID,
-                            algorithm = "brute-force",
-                            trace = FALSE)
-sum_grid_51 <- summary(fitted_br1_51_brute) #save the summary of this first scan
-starVals_51 <- sum_grid_51$parameters[,1] #these are the starting values for
-fitted_br1_51_gnls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
-                           data = id51_to_fit,
-                           start = starVals_51,
-                           weights = varExp(),
-                           control = gnlsControl(nlsTol = 1e-2))  
-sum_br1_51 <- summary(fitted_br1_51_gnls)
-coefs_51 <- data.frame(coef(sum_br1_51)[,1:2],row.names = NULL)
-Topt_est_51 <- Topt(Tmin=coefs_51[2,1],
-                    Tmax=coefs_51[3,1],
-                    m=2)
-Topt_se_51 <- deltamethod(~ ((2*2*x3+(2+1)*x2)+sqrt(4*(2^2)*(x3^2)+((2+1)^2)*(x2^2)-4*(2^2)*x2*x3))/(4*2+2), 
-                          coef(fitted_br1_51_gnls), vcov(fitted_br1_51_gnls))
-
-a_est <-     coef(sum_br1_51)[1,1]
-a_se <-      coef(sum_br1_51)[1,2]
-Tmin_est <-  coef(sum_br1_51)[2,1]
-Tmin_se <-   coef(sum_br1_51)[2,2]
-Tmax_est <-  coef(sum_br1_51)[3,1]
-Tmax_se <-   coef(sum_br1_51)[3,2]
-Topt_est <-  Topt_est_ID
-Topt_se <-   Topt_se_ID
-starting_a <-  starVals_ID[1]
-starting_Tmin <- starVals_ID[2]
-starting_Tmax <-  starVals_ID[3]  
-myList <- tibble(a_est, #create a list to use as replacement of NAs in dplyr format
-                 a_se,
-                 Tmin_est,
-                 Tmin_se, 
-                 Tmax_est,
-                 Tmax_se, 
-                 Topt_est,
-                 Topt_se,
-                 starting_a,
-                 starting_Tmin,
-                 starting_Tmax)
-params_br1_individual[params_br1_individual$id==51,-1] <- tibble(myList)
+## do not run from here
 
 #### _ _ 7.2. Dataset traits ensemble ####
 params_br1_individual
