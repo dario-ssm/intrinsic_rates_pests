@@ -78,11 +78,12 @@ intrinsic_classified %>%
 
 #### 3. Exploratory INTRAPEST database analysis ####
 #### _ _ _ 3.1. Tibble ensembling ####
-IR_data <-read_csv("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/intrinsic_growth2_upd.csv") %>%
+IR_data <-read_csv("~/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/intrinsic_growth2_upd.csv") %>%
   filter(Filter_3 == "yes") %>% #select only those which have passed the filter 3 in the source csv
   mutate(growth_rate = replace(growth_rate, growth_rate <= 0,0))%>% #transform negative values into 0
   filter(as.numeric(temperature)<50)%>% # exclude possible mistranscription in the dataset ensambling process
   as_tibble()%>% #convert to tibble object
+  rename(n_1 = n...15) %>% 
   glimpse() # similar to str()
 #since some numerical variables have been read as characters, we change them to dbl
 IR_data$temperature <- as.numeric(IR_data$temperature)
@@ -93,7 +94,7 @@ IR_data$lat <- as.numeric(IR_data$lat)
 IR_data$n_1 <- as.numeric(IR_data$n_1)
 #now we count how many points by paper we have
 IR_data %>% 
-  count(`Article Title`)%>%
+  count(`Article Title`)#%>%
   View()
 #### _ _ _ 3.2. Subset: n and  s^2 ####
 IR_suitable4metaanalysis <- IR_data %>% 
@@ -108,14 +109,14 @@ IR_suitable4metaanalysis <- IR_data %>%
   filter(order == "Acari>Prostigmata" | #select both categories of acari
            order == "Acari>Trombidiformes")%>%
   mutate(order = "Acari") #change the content into just "Acari"
-IR_data <-IR_data %>%
+IR_data_meta <-IR_suitable4metaanalysis %>%
   filter(order != "Acari>Prostigmata" & #exclude acari rows
            order != "Acari>Trombidiformes")%>% #exclude acari rows
   bind_rows(acari) #bind "Acari" rows
 
 #select all columns except original Article Title
 #now we write the csv which is suitable to posterior meta-analysis techniques
-write_csv(IR_suitable4metaanalysis,"IR_metaanalysis_suitable.csv")
+write_csv(IR_data_meta,"IR_metaanalysis_suitable.csv")
 
 #which is the resulting sample size after subsetting?
 counts4meta <- IR_suitable4metaanalysis %>%
