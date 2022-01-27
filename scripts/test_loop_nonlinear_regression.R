@@ -30,7 +30,7 @@ library(car)
 library(nlme)
 library(brms)
 #load data:
-IR_data <-read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_metaanalysis_suitable.csv") %>%
+IR_data <-read_csv("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data/IR_metaanalysis_suitable.csv" ) %>%
   filter(Filter_3 == "yes") %>% #select only those which have passed the filter 3 in the source csv
   #mutate(growth_rate = replace(growth_rate, growth_rate <= 0,0))%>% #we assign 0 to negative values of intrinsic rates (biological nonsense?)
   filter(as.numeric(temperature)<50) %>% #exclude possible missleading points
@@ -1069,7 +1069,8 @@ IR_data_all <- IR_data_year_corr %>%
   mutate(sd = median(stdev)) %>% 
   rename(sd_treat = stdev,
          sd_median = sd) %>% 
-  print()
+  ungroup() %>% 
+  glimpse()
 
 distinct_ids <- IR_data_all %>%  
   distinct(id)
@@ -1119,7 +1120,7 @@ for (i in unique(ID)){
       temper <- as.numeric(temp_ID[t,])
       n <-  as.numeric(IR_data_ID %>% filter(id==i & temperature==temper)%>% select(n_1))
       mu <- as.numeric(IR_data_ID %>% filter(id==i & temperature==temper)%>% select(growth_rate))
-      sd <-as.numeric(IR_data_ID %>% filter(id==i & temperature==temper)%>% select(stdev))
+      sd <-as.numeric(IR_data_ID %>% filter(id==i & temperature==temper)%>% select(sd_treat))
       sim_r <- rnorm(n,mu,sd)
       simul_ID[simul_ID$temp == temper,"r"] <- tibble(sim_r) 
     }
