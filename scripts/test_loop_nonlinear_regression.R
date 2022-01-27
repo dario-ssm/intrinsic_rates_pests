@@ -30,11 +30,11 @@ library(car)
 library(nlme)
 library(brms)
 #load data:
-IR_data <-read_csv("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data/IR_metaanalysis_suitable.csv") %>%
+IR_data <-read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_metaanalysis_suitable.csv") %>%
   filter(Filter_3 == "yes") %>% #select only those which have passed the filter 3 in the source csv
   #mutate(growth_rate = replace(growth_rate, growth_rate <= 0,0))%>% #we assign 0 to negative values of intrinsic rates (biological nonsense?)
   filter(as.numeric(temperature)<50) %>% #exclude possible missleading points
-  dplyr::select(Authors,title,Filter_3,Approach,Subapproach,temperature,growth_rate,
+  dplyr::select(Authors,Year,title, DOI,Filter_3,Approach,Subapproach,temperature,growth_rate,
                 error,n_1,order,family,genus,species,feeding_guild,h_p_family,
                 diet_family,RH,daylength,lat,lon)%>%
   glimpse()
@@ -880,157 +880,197 @@ summary(bayes_fit)
 
 
 #### 7. Loop for individual study model fitting ####
+# let's compile standard deviations
 IR_data_sd <- IR_data %>%
   mutate(stdev=error*sqrt(n_1)) %>% 
   filter(word(Authors,1) != "Vangansbeke," &
          word(Authors,1) != "Xie,") #problems: that study has only two temperature treatments
+# and let's ad an id to each unique paper (although some papers with different treatments within
+ # e.g. for different species in the same study, will be treated as different studies)
 IR_data_title <- IR_data_sd %>%
   distinct(title)%>%
   mutate(id=row_number()) #one id per distinct paper in a new dataframe
 IR_data_all <- inner_join(IR_data_sd,IR_data_title,by='title')
-## now we will avoid errors by summarising mean for those papers who have repeated temperatures into one temperature : 1 row
-# ids: 13, 34, 35, 41, 44, 55
-problematic_ids <- c(13,33,34,39,42,53)
+
+## now we will avoid errors by sumarising mean for those papers who have repeated temperatures into one temperature : 1 row
+# first let's see problematic studies:
+# let's check out if duplicate temperature treatments have been summarised
+subset_problems <- IR_data_all %>% 
+  group_by(id, temperature) %>%
+  count() %>% 
+  filter(n >1) %>% 
+  print()
+troublemakers <- subset_problems %>% 
+  ungroup() %>% 
+  select(id) %>% 
+  distinct(id) %>% 
+  glimpse()
+# ids: 10, 27, 32, 42, 50, 52
 num_vars_except_temp <- c("id","growth_rate","error","stdev","n_1","lon","lat")
-### 13
-IR_data_13_numvars <- IR_data_all %>% #select numeric variables and summarise mean for each one of them
-  filter(id==13) %>%
+### 10
+IR_data_10_numvars <- IR_data_all %>% #select numeric variables and summarise mean for each one of them
+  filter(id==10) %>%
   group_by(temperature,.drop=FALSE) %>%
   summarise_all(mean) %>%
   select(temperature,all_of(num_vars_except_temp))
-IR_data_13_extra <-  IR_data_all %>% #recall the categorical variables
-  filter(id==13) %>%
+IR_data_10_extra <-  IR_data_all %>% #recall the categorical variables
+  filter(id==10) %>%
   select(-num_vars_except_temp)%>%
   group_by(temperature)%>%
   summarise_all(unique) %>%
   select(-temperature)
-IR_data_13 <- IR_data_13_numvars %>% #bind both
-  bind_cols(IR_data_13_extra)
-### 33
-IR_data_33_numvars <- IR_data_all %>%
-  filter(id==33) %>%
+IR_data_10 <- IR_data_10_numvars %>% #bind both
+  bind_cols(IR_data_10_extra)
+
+### 27
+IR_data_27_numvars <- IR_data_all %>%
+  filter(id==27) %>%
   group_by(temperature,.drop=FALSE) %>%
   summarise_all(mean) %>%
-  select(temperature,all_of(num_vars_except_temp))
-IR_data_33_extra <-  IR_data_all %>%
-  filter(id==33) %>%
+  select(temperature,all_of(num_vars_except_temp),RH)
+IR_data_27_extra <-  IR_data_all %>%
+  filter(id==27) %>%
   select(-num_vars_except_temp,-RH)%>%
   group_by(temperature)%>%
   summarise_all(unique) %>%
   select(-temperature)
-IR_data_33 <- IR_data_33_numvars %>%
-  bind_cols(IR_data_33_extra)
-### 34
-species_34 <- IR_data_all %>% filter(id==34) %>% distinct(species) %>% select(species) #only requires to separate species
-names_species_34 <- species_34$species
-coordinates_34 <- IR_data_all %>%
-  filter(id == 34) %>%
+IR_data_27 <- IR_data_27_numvars %>%
+  bind_cols(IR_data_27_extra)
+
+### 32
+IR_data_32_numvars <- IR_data_all %>%
+  filter(id==32) %>%
+  group_by(temperature,.drop=FALSE) %>%
+  summarise_all(mean) %>%
+  select(temperature,all_of(num_vars_except_temp))
+IR_data_32_extra <-  IR_data_all %>%
+  filter(id==32) %>%
+  select(-num_vars_except_temp,-RH)%>%
+  group_by(temperature)%>%
+  summarise_all(unique) %>%
+  select(-temperature)
+IR_data_32 <- IR_data_32_numvars %>%
+  bind_cols(IR_data_32_extra)
+
+### 50
+species_50 <- IR_data_all %>% filter(id==50) %>% distinct(species) %>% select(species) #only requires to separate species
+names_species_50 <- species_50$species
+coordinates_50 <- IR_data_all %>%
+  filter(id == 50) %>%
   group_by(lon, lat) %>% 
   summarise(lon=unique(lon),
             lat=unique(lat))
 
-IR_data_34_all <- IR_data_all %>%
-  filter(id==34) %>%
-  mutate(species=rep(names_species_34,5))
+IR_data_50_all <- IR_data_all %>%
+  filter(id==50) %>%
+  mutate(species=rep(names_species_50,5))
 
-IR_data_34 <- IR_data_34_all %>%
+IR_data_50 <- IR_data_50_all %>%
   filter(species == "urticae")%>%
-  mutate(lon=coordinates_34$lon[6],
-         lat=coordinates_34$lat[6])
+  mutate(lon=coordinates_50$lon[6],
+         lat=coordinates_50$lat[6])
 
-IR_data_55 <- IR_data_34_all %>%
+IR_data_55 <- IR_data_50_all %>%
   filter(species == "ludeni") %>%
   mutate(id=55) %>% 
-  mutate(lon=coordinates_34$lon[4],
-         lat=coordinates_34$lat[4])
+  mutate(lon=coordinates_50$lon[4],
+         lat=coordinates_50$lat[4])
 
-IR_data_56 <- IR_data_34_all %>%
+IR_data_56 <- IR_data_50_all %>%
   filter(species == "phaselus")%>%
   mutate(id=56)%>% 
-  mutate(lon=coordinates_34$lon[3],
-         lat=coordinates_34$lat[3])
+  mutate(lon=coordinates_50$lon[3],
+         lat=coordinates_50$lat[3])
 
-IR_data_57 <- IR_data_34_all %>%
+IR_data_57 <- IR_data_50_all %>%
   filter(species == "piercei")%>%
   mutate(id=57)%>% 
-  mutate(lon=coordinates_34$lon[2],
-         lat=coordinates_34$lat[2])
+  mutate(lon=coordinates_50$lon[2],
+         lat=coordinates_50$lat[2])
 
-IR_data_58 <- IR_data_34_all %>%
+IR_data_58 <- IR_data_50_all %>%
   filter(species == "truncatus")%>%
   mutate(id=58)%>% 
-  mutate(lon=coordinates_34$lon[1],
-         lat=coordinates_34$lat[1])
-### 39
-IR_data_39_numvars <- IR_data_all %>%
-  filter(id==39) %>%
-  group_by(temperature,.drop=FALSE) %>%
-  summarise_all(mean) %>%
-  select(temperature,all_of(num_vars_except_temp),RH)
-IR_data_39_extra <-  IR_data_all %>%
-  filter(id==39) %>%
-  select(-num_vars_except_temp,-RH)%>%
-  group_by(temperature)%>%
-  summarise_all(unique) %>%
-  select(-temperature)
-IR_data_39 <- IR_data_39_numvars %>%
-  bind_cols(IR_data_39_extra)
-### 42
-IR_data_42_numvars <- IR_data_all %>%
-  filter(id==42) %>%
+  mutate(lon=coordinates_50$lon[1],
+         lat=coordinates_50$lat[1])
+
+### 52
+IR_data_52_numvars <- IR_data_all %>%
+  filter(id==52) %>%
   group_by(temperature) %>%
   summarise_all(mean) %>%
   mutate(lon = 138, lat=36)%>%
   select(temperature,all_of(num_vars_except_temp))
+IR_data_52_extra <-  IR_data_all %>%
+  filter(id==52) %>%
+  select(-num_vars_except_temp)%>%
+  group_by(temperature)%>%
+  summarise_all(unique) %>%
+  select(-temperature)
+IR_data_52 <- IR_data_52_numvars %>%
+  bind_cols(IR_data_52_extra)
+
+### 42
+IR_data_42_numvars <- IR_data_all %>%
+  filter(id==42 &
+           species == "fragariae") %>%
+  group_by(temperature) %>%
+  summarise_all(mean) %>%
+  select(temperature,all_of(num_vars_except_temp))
 IR_data_42_extra <-  IR_data_all %>%
-  filter(id==42) %>%
+  filter(id==42 & species == "fragariae") %>%
   select(-num_vars_except_temp)%>%
   group_by(temperature)%>%
   summarise_all(unique) %>%
   select(-temperature)
 IR_data_42 <- IR_data_42_numvars %>%
   bind_cols(IR_data_42_extra)
-### 53
-IR_data_53_numvars <- IR_data_all %>%
-  filter(id==53 &
-           species == "fragariae") %>%
-  group_by(temperature) %>%
-  summarise_all(mean) %>%
-  select(temperature,all_of(num_vars_except_temp))
-IR_data_53_extra <-  IR_data_all %>%
-  filter(id==53 & species == "fragariae") %>%
-  select(-num_vars_except_temp)%>%
-  group_by(temperature)%>%
-  summarise_all(unique) %>%
-  select(-temperature)
-IR_data_53 <- IR_data_53_numvars %>%
-  bind_cols(IR_data_53_extra)
 IR_data_59 <- IR_data_all %>%
-  filter(id==53 &
+  filter(id==42 &
            species == "miscanthi")%>%
   mutate(id=59)
+
 # now we ensemble all these subsets into the main dataset
+print(troublemakers)
 IR_data_all_rev <- IR_data_all %>%
-  filter(id != 13 &
-           id!= 33 &
-           id!= 34 &
-           id!= 39 &
-           id!= 42 &
-           id!= 53) %>%
-  bind_rows(IR_data_13,
-            IR_data_33,
-            IR_data_34,
-            IR_data_39,
+  filter(id != 10 &
+         id != 27 &
+         id != 32 &
+         id != 42 &
+         id != 50 &
+         id != 52) %>%
+  bind_rows(IR_data_10,
+            IR_data_27,
+            IR_data_32,
             IR_data_42,
-            IR_data_53,
+            IR_data_50,
+            IR_data_52,
             IR_data_55,
             IR_data_56,
             IR_data_57,
             IR_data_58,
             IR_data_59)%>%
   arrange(id)  #problems with that paper which only has two treatments (we need three to gnls operation)
-IR_data_all <- IR_data_all_rev #recover original name of the tibble
-#now set wd:
+# let's check out if duplicate temperature treatments have been summarised
+remaining_troublemakers <- IR_data_all_rev %>% 
+  group_by(id, temperature) %>%
+  count() %>% 
+  filter(n >1) %>% 
+  print()
+#none is problematic :_)
+# thus we can rename the dataset and correct NAs at year variable
+IR_data_year_corr<- IR_data_all_rev %>%  #recover original name of the tibble
+  mutate(across(Year, ~replace_na(.,2021))) %>%  #it is 2021
+  glimpse()
+
+#now we summarise an unique median standard deviation for each study for later weighting
+IR_data_all <- IR_data_year_corr %>% 
+  group_by(id) %>% 
+  mutate(sd = median(stdev)) %>% 
+  rename(sd_treat = stdev,
+         sd_median = sd) %>% 
+  print()
+
 distinct_ids <- IR_data_all %>%  
   distinct(id)
 ID <- rep(1:length(distinct_ids$id), each = 100)
@@ -1048,11 +1088,11 @@ myList <- tibble(a_est = rep(NA,length(ID)), #create a list to use as replacemen
 
 params_br1_individual <- tibble(id=ID,myList)
 
-for (i in unique(ID)){ #para cada valor entre los que est?n en nuestro vector ("Study" or "id"; es decir, del 1 al 56)
-  IR_data_ID <- IR_data_all %>% #subset con el conjunto que hacemos en cada iteraci?n
+for (i in unique(ID)){ 
+  IR_data_ID <- IR_data_all %>% 
     filter(id==i)
   png(filename = paste0("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data_",i,".png"))
-  plot(IR_data_ID$temperature,IR_data_ID$growth_rate) #ploteamos y guardamos un plot para tenerlos todos luego
+  plot(IR_data_ID$temperature,IR_data_ID$growth_rate) 
   dev.off()
   iterative_simul_ID <- params_br1_individual %>% 
     filter(id == i)
@@ -1156,7 +1196,9 @@ write_csv(params_br1_individual,"repeated_simul_parameters.csv")
 ## do not run from here
 
 #### _ _ 7.2. Dataset traits ensemble ####
-params_br1_individual
+# let's check if id number is correct
+IR_data_all %>% distinct(id) #yes it is
+# let's extract non-numneric vars and group acari into one order
 acari_data <- IR_data_all %>% 
   filter(order == "Acari>Prostigmata" |
            order == "Acari>Trombidiformes") %>% 
@@ -1168,12 +1210,14 @@ IR_data_covs <- acari_data %>%
   bind_rows(non_acari) 
 
 data4params <- IR_data_covs %>%
-  select(Authors,order,family,feeding_guild,
+  select(Authors,order,family,genus,species,feeding_guild,
          lat,lon,id) %>%
+  mutate(spp = paste(genus, species)) %>% 
   group_by_all() %>%
   summarise(id=unique(id)) %>%
   arrange(id) %>% 
   mutate(Authors = word(Authors,1,2)) %>% 
+  relocate(id, Authors, order, family, spp, feeding_guild, lat, lon) %>% 
   glimpse()
 
 thermal_traits_indiv <- data4params %>%
