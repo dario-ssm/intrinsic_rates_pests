@@ -30,7 +30,7 @@ library(car)
 library(nlme)
 library(brms)
 #load data:
-IR_data <-read_csv("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data/IR_metaanalysis_suitable.csv" ) %>%
+IR_data <-read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_metaanalysis_suitable.csv") %>%
   filter(Filter_3 == "yes") %>% #select only those which have passed the filter 3 in the source csv
   #mutate(growth_rate = replace(growth_rate, growth_rate <= 0,0))%>% #we assign 0 to negative values of intrinsic rates (biological nonsense?)
   filter(as.numeric(temperature)<50) %>% #exclude possible missleading points
@@ -486,7 +486,6 @@ second_sensitivity_analysis
 
 
 ### 4. Loop for simulation csv generator & export ####
-setwd("C:/Users/Ecologia/Desktop/DAR?O_actualizada septiembre 2021/Intrinsic_metaanalysis/simulations") #to save plots here together
 distinct_ids <- IR_data_all %>%  
   distinct(id)
 #### _ _ _ 4.1. Data simulations ####
@@ -1060,7 +1059,9 @@ remaining_troublemakers <- IR_data_all_rev %>%
 #none is problematic :_)
 # thus we can rename the dataset and correct NAs at year variable
 IR_data_year_corr<- IR_data_all_rev %>%  #recover original name of the tibble
-  mutate(across(Year, ~replace_na(.,2021))) %>%  #it is 2021
+  mutate(across(Year & where(is.numeric),
+                ~ case_when(DOI != "10.25085/rsea.780405" ~ replace_na(.,2021)))) %>% # poner 2021 en el primero
+  mutate(across(Year, ~ replace_na(.,2019))) %>% #poner 2019 en el otro
   glimpse()
 
 #now we summarise an unique median standard deviation for each study for later weighting
@@ -1190,44 +1191,57 @@ for (i in unique(ID)){
 
 params_br1_individual 
 View(params_br1_individual)
-write_csv(params_br1_individual,"repeated_simul_parameters.csv")
+#write_csv(params_br1_individual,"repeated_simul_parameters.csv")
 
+## and count NAs
+ thermal_traits_raw <- read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/repeated_simul_parameters.csv") %>% 
+   print()
+counting_nas <- thermal_traits_raw %>% 
+  group_by(id) %>% 
+  summarise(counting = sum(!is.na(a_est))) %>% 
+  print()
+convergence_number <- rep(counting_nas$counting, each = 100)
+# add convergence number to the dataset
+thermal_traits_simulations <- thermal_traits_raw %>% 
+  bind_cols(studies_converging = convergence_number)
 
-
-## do not run from here
 
 #### _ _ 7.2. Dataset traits ensemble ####
 # let's check if id number is correct
 IR_data_all %>% distinct(id) #yes it is
 # let's extract non-numneric vars and group acari into one order
-acari_data <- IR_data_all %>% 
-  filter(order == "Acari>Prostigmata" |
-           order == "Acari>Trombidiformes") %>% 
-  mutate(order = "Acari")
-non_acari <- IR_data_all %>% 
-  filter(order != "Acari>Prostigmata" &
-           order != "Acari>Trombidiformes")
-IR_data_covs <- acari_data %>% 
-  bind_rows(non_acari) 
-
-data4params <- IR_data_covs %>%
-  select(Authors,order,family,genus,species,feeding_guild,
-         lat,lon,id) %>%
+IR_data_covs <- IR_data_all %>%
+  select(Authors,Year,DOI,order,family,genus,species,feeding_guild,
+         lat,lon,sd_median,id) %>%
   mutate(spp = paste(genus, species)) %>% 
   group_by_all() %>%
   summarise(id=unique(id)) %>%
   arrange(id) %>% 
   mutate(Authors = word(Authors,1,2)) %>% 
-  relocate(id, Authors, order, family, spp, feeding_guild, lat, lon) %>% 
+  rename(year = Year, authors = Authors) %>% 
+  relocate(id, authors, year, feeding_guild, order, family, genus, species, spp, lat, lon, sd_median) %>% 
   glimpse()
+
+# now repeat 100 times each row
+data4params <- IR_data_covs %>% 
+slice(rep(1:n(), each =100)) %>% 
+  arrange(id) %>% 
+  relocate() %>%
+  ungroup() %>% 
+  print()
+
+#and bind datasets
+glimpse(thermal_traits_simulations)
+glimpse(data4params)
 
 thermal_traits_indiv <- data4params %>%
   select(-id) %>% 
-  bind_cols(params_br1_individual) %>% 
-  filter(id != 19 &
-         id != 45) %>% 
-  glimpse()
-write_csv(thermal_traits_indiv,"thermal_traits_individual.csv")
+  bind_cols(thermal_traits_simulations) %>% 
+  relocate(id) %>% 
+  glimpse() 
+
+write_csv(thermal_traits_indiv,"/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/thermal_traits_individual.csv")
+
 #### _ _ 7.3. exploratory ####
 boxplot(thermal_traits_indiv$Tmin_est,thermal_traits_indiv$Tmax_est)
 range(thermal_traits_indiv$Tmin_est)
