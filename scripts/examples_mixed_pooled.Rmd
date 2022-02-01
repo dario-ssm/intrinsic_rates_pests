@@ -1,0 +1,159 @@
+---
+title: "Pooled meta-analysis methods"
+author: "Dario San-Segundo-Molina, Ignacio Morales-Castilla, Sara Villen-Perez;"
+date: "13/1/2022"
+output: html_document
+references: references.bib
+csl: ecography.csl
+bibliography: references.bib
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+El objetivo del documento es probar modelos mixtos con un subset de
+nuestros datos
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(brms)
+library(nlme)
+library(knitr)
+
+
+briere1 <- function(a, temp, Tmin, Tmax){
+  a*temp*(temp-Tmin)*(Tmax-temp)^(1/2)
+}
+# Since Topt is not a direct parameter of the model, it can be derived from Tmin and Tmax
+# according to Marchioro & Foerster, 2011:
+Topt <- function(Tmin,Tmax,m){
+  Topt=((2*m*Tmax+(m+1)*Tmin)+sqrt(4*(m^2)*(Tmax^2)+((m+1)^2)*(Tmin^2)-4*(m^2)*Tmin*Tmax))/(4*m+2)
+  return(Topt)
+}
+```
+
+Para ello, primero cargamos los datos y cogemos solo los de ácaros.
+
+```{r}
+#  intrapest_test <-read_csv("/Users/dario-ssm/Documents/Dario Investigacion#   /IntRaPest/intrinsic_rates_pests/data/IR_data_complete_sim.csv" ) %>%
+#     filter(id != 19 & id != 47 & order == "Acari>Prostigmata" | order =="Acari#   >Trombidiformes") %>% 
+#     mutate(order = "Acari") %>% 
+#     mutate(weights_meta = 1/(sd^2)) %>% 
+#     glimpse()
+#   
+#   kable(intrapest_test)
+```
+
+## 1. `nlme` package
+
+#### a) `lme()`
+
+Asumiendo linealidad para comprender la estructura del modelo y del
+output, probamos con esta función primero.
+
+Probamos primero modelo *random-effects* para la tasa de crecimiento
+intrínseco sin tener en cuenta la temperatura
+
+```{r}
+ re_lme_acari <- lme(r ~ 1, 
+                     random = ~ 1|id,
+                     weights = ~ weights_meta,
+                     data = intrapest_test) 
+ summary(re_lme_acari)
+```
+
+Error log-cholesky, para variar. Es que claramente esto no es linear.
+
+```{r}
+ re_lme_acari <- lme(r ~ temp, 
+                     random = ~ 1|id,
+                     weights = ~ weights_meta,
+                     data = intrapest_test) 
+ summary(re_lme_acari)
+```
+
+De esa tabla destacan:
+
+-   La **between-studies** variance (Q~bet~ = 0.065) y la
+    **within-studies** variance
+
+#### b) nlme()
+
+```{r}
+start_nls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                  start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                  weights = varExp(0.025,~weights_meta),
+                  data = intrapest_test,
+                  control = gnlsControl(nlsTol = 1,
+                                        tolerance = 1))
+startvals_sum <- summary(start_nls)
+startvals <- coef(startvals_sum)[1:3,1]
+nlme_random_temp_only <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
+                              start = startvals, 
+                              fixed = a+Tmin+Tmax ~ 1, 
+                              random =a+Tmin+Tmax ~ 1|id,
+                              weights = varExp(,temp~weights_meta),
+                              data = intrapest_test,
+                              control = nlmeControl(pnlsTol = 100)) 
+summary(nlme_random_temp_only)
+```
+
+## - 2. lmer package ----
+
+# .... a) lme() ----
+
+nlme_br1_all_varExp_sim_sens \<- nlme(model= r \~ briere1(a,temp =
+temp,Tmin,Tmax), start = starts_all_sim_sens, fixed = a+Tmin+Tmax \~1,
+groups = \~id, \# same as random effects = a+Tmin+Tmax \~ 1\| id #random
+=a+Tmin+Tmax\~1\|id, data = IR_data_sim_sens, weights = varExp(),
+na.action=na.exclude, control = nlmeControl(pnlsTol = 1, msMaxIter =
+100, msVerbose = TRUE))#to avoid error of singularity in backsolve at
+level 0; block 1
+
+## 3. `brms` package
+
+Just... just try it. First with penguins
+
+```{r}
+library(palmerpenguins)
+penguins
+```
+
+model for bill_length_mm against body_mass_g.
+
+```{r}
+lm1 <- lm(bill_length_mm ~ body_mass_g,
+          data = penguins)
+summary(lm1)
+ggplot(penguins, aes(body_mass_g,bill_length_mm))+
+  geom_point()+
+  geom_smooth(method = "lm")
+```
+
+Let's use a bayesian model...
+
+```{r}
+penguins_clean <- penguins %>% 
+  filter(is.na(body_mass_g) == FALSE)
+lme_1 <- lme(bill_length_mm ~ body_mass_g,
+             random = ~ 1|species,
+             data = penguins_clean)
+summary(lme_1)
+
+#noninformative bayes
+bayes1 <- brm(bill_length_mm ~ body_mass_g +(1|species),
+              data = penguins_clean,
+              family = "gaussian")
+summary(bayes1)
+
+#informative bayes
+prior1 <- set_prior("normal(-0.375, 0.50232)", class = "b")
+bayes2 <- brm(bill_length_mm ~ body_mass_g +(1|species),
+              data = penguins_clean,
+              family = "gaussian",
+              prior = prior1)
+summary(bayes2)
+ summary(bayes1)
+
+```

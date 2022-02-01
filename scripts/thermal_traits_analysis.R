@@ -7,7 +7,7 @@
 
 
 
-#### 1. Load Dataset ####
+# 1. Load Dataset ----
 rm(list=ls())
 #library(tidyverse)
 library(dplyr)
@@ -47,16 +47,16 @@ Topt_se <- thermal_traits_data$Topt_se_delta
 lat <- thermal_traits_data$lat
 lon <- thermal_traits_data$lon
 
-#### 2. Exploratory data analysis ####
-#### _ _ a) Tmin ####
+# 2. Exploratory data analysis ----
+# _ _ a) Tmin ----
 summary(Tmin_est)
 hist(Tmin_est) #quite normal
 shapiro.test(Tmin_est) #normal
-#### _ _ b) Tmax ####
+# _ _ b) Tmax ----
 summary(Tmax_est)
 hist(Tmax_est)   #quite normal
 shapiro.test(Tmax_est) #normal
-#### _ _ c) lon, lat ####
+# _ _ c) lon, lat ----
 summary(lat)
 hist(lat)    
 #create map along coordinates (prepared to insert in a colored background with transparent ocean)
@@ -68,38 +68,38 @@ map <- ggplot(data = thermal_traits_data, aes(x = lon, y = lat)) +
   
 map
 #ggsave("map_meta.png",height=15,width=25,units="cm",bg = "transparent")
-#### _ _ d) Topt ####
+# _ _ d) Topt ----
 summary(Topt_est)
 hist(Topt_est) #quite normal
 shapiro.test(Topt_est) #normal
 
-#### 3. Linear regressions ####
-#### _ _ 3.1. Tmin to lat #### 
+# 3. Linear regressions ----
+# _ _ 3.1. Tmin to lat  ---- 
 Tmin_lat <- lm(Tmin_est_nls~abs(lat), data = thermal_traits_data)
 check_model(Tmin_lat) #quite good
 Tmin_lat_sum <- summary(Tmin_lat)
 Tmin_lat_sum
 
-#### _ _ 3.2. Tmax to lat #### 
+# _ _ 3.2. Tmax to lat  ---- 
 Tmax_lat <- lm(Tmax_est_nls~abs(lat), data = thermal_traits_data)
 check_model(Tmax_lat) #quite good
 Tmax_lat_sum <- summary(Tmax_lat)
 Tmax_lat_sum
 
-#### _ _ 3.3. Topt to lat ####
+# _ _ 3.3. Topt to lat  ----
 Topt_lat <- lm(Topt_est~abs(lat), data = thermal_traits_data)
 check_model(Topt_lat)
 Topt_lat_sum <- summary(Topt_lat)
 Topt_lat_sum
 
-#### _ _ 3.4. Tmax to Tmin ####
+# _ _ 3.4. Tmax to Tmin  ----
 Tmax_Tmin <- lm(Tmax_est_nls~Tmin_est_nls, data = thermal_traits_data)
 check_model(Tmax_Tmin)
 Tmax_Tmin_sum <- summary(Tmax_Tmin)
 Tmax_Tmin_sum
 
-#### 4. Plots ####
-# ####_ _ 4.1 Thermal traits across latitude ####
+# 4. Plots  ----
+#_ _ 4.1 Thermal traits across latitude  ----
 
 Tmin_to_lat_plot <- ggplot(thermal_traits_data,aes(abs(lat),Tmin_est_nls))+
   geom_point(alpha=0.5,color="skyblue4")+
@@ -165,7 +165,6 @@ all_lms_combined <- ggplot(thermal_traits_data)+
 
 all_lms_combined
 
-
 #by order
 Tmin_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Tmin_est_nls))+
   geom_point(alpha=0.5,aes(color=order))+
@@ -199,7 +198,7 @@ Topt_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Topt_est))+
   theme_light()+
   theme(legend.position = "none")
 Topt_to_lat_plot_order
-####_ _ 4.2 Thermal traits across taxa ####
+#_ _ 4.2 Thermal traits across taxa  ----
 #prepare dataframe
 counts <- thermal_traits_data %>%
   count(order)%>%
