@@ -1089,16 +1089,15 @@ myList <- tibble(a_est = rep(NA,length(ID)), #create a list to use as replacemen
                  starting_Tmax = rep(NA,length(ID)))
 
 params_br1_individual <- tibble(id=ID,myList)
-
+set.seed(642)
 for (i in unique(ID)){ 
-  IR_data_ID <- IR_data_all %>% 
+    IR_data_ID <- IR_data_all %>% 
     filter(id==i)
   png(filename = paste0("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data_",i,".png"))
   plot(IR_data_ID$temperature,IR_data_ID$growth_rate) 
   dev.off()
   iterative_simul_ID <- params_br1_individual %>% 
     filter(id == i)
-    
   for (nrep in 1:100){
     cat(paste(paste("Study",i,"/",length(unique(ID))),
               paste("simulation",nrep,"/",100),
@@ -1115,9 +1114,7 @@ for (i in unique(ID)){
       simul_ID$temp[position$n_1[num]:(position$n_1[num]-1+enes$n_1[num])] <- rep(temp_ID$temperature[num], each = enes$n_1[num])
     }
     simul_ID
-    
     for(t in 1:length(temp_ID$temperature)){
-      
       temper <- as.numeric(temp_ID[t,])
       n <-  as.numeric(IR_data_ID %>% filter(id==i & temperature==temper)%>% select(n_1))
       mu <- as.numeric(IR_data_ID %>% filter(id==i & temperature==temper)%>% select(growth_rate))
@@ -1126,7 +1123,8 @@ for (i in unique(ID)){
       simul_ID[simul_ID$temp == temper,"r"] <- tibble(sim_r) 
     }
     simul_ID
-    #write_csv(simul_ID,file = paste0("/Users/Ecologia/Desktop/DAR?O_actualizada septiembre 2021/Intrinsic_metaanalysis/simulations/simulated_data_study_id_",i,".csv"))
+    write_csv(simul_ID,file = paste0("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/simulated_data_study_id_",i,"_rep_",nrep,".csv"))
+  }
     grid_br1_ID <- expand.grid(list(a=seq(1e-05,6e-04,by=1e-05),
                                     Tmin=seq(-5,21.5,by=1),
                                     Tmax=seq(25.5,48,by=1)))
@@ -1310,4 +1308,5 @@ summary(tmax_to_lat_filter_lm)
 #           2) zero-rounded error for other variables (...)
 #           3) they do not discuss the errors
 #  mat & meth seem okay but I would remove this paper...
+
 
