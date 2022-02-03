@@ -352,7 +352,7 @@ prior_1 <- c(set_prior("normal(200, 50)", nlpar = "phi1"),
 #prior_2 <- rbind(prior_1, set_prior("cauchy(30,2)", class = "sd"))
 
 f1 <- circumference ~ phi1 / (1 + exp(-(age - phi2)/phi3))
-orange_formula <- bf(circumference ~ phi1 / (1 + exp(-(age - phi2)/phi3)),
+orange_formula <- bf(circumference|se(vi) ~ phi1 / (1 + exp(-(age - phi2)/phi3)),
                              # Nonlinear variables
                               nonlinear = list(phi1 ~ (1|Tree),
                                                phi2 ~ 1,
@@ -378,3 +378,24 @@ summary(n2_b)
 
 -   The **between-trees heterogeneity** *τ* ^2^ = 45.01 [21.59, 97.20]
     and a **within-trees heterogeneity** of 24.65228.
+
+Note that if we add weights, model convergence is not achieved (probably
+due to invented data for vi). Let's check it out with other datasets:
+
+```{r}
+data(loss)
+loss
+example_function <- bf(cum ~ ult * (1 - exp(-(dev/theta)^omega)),
+                       ult ~ 1 + (1|AY),
+                       omega ~ 1,
+                       theta ~ 1,
+                       nl = TRUE)
+fit_loss <- brm(formula = example_function,
+                data = loss,
+                family = gaussian(),
+                prior = c(prior(normal(5000, 1000), nlpar = "ult"),
+                          prior(normal(1, 2), nlpar = "omega"),
+                          prior(normal(45, 10), nlpar = "theta")),
+                control = list(adapt_delta = 0.9)
+                )
+```
