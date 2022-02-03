@@ -44,6 +44,14 @@ thetrapest_weighted <- thetrapest %>%
          weights_topt = 1/Topt_se,
          id = as_factor(id)
          )
+
+ggplot(thetrapest, aes(Tmin_est))+
+  geom_boxplot()+
+  geom_label(
+    label=rownames(thetrapest), 
+    nudge_x = 0.25, nudge_y = 0.25, 
+    check_overlap = T
+  )
 ```
 
 ## Background on meta-analyses and thermal-traits modelling procedures:

@@ -25,7 +25,7 @@ Thermal traits database (from now on: [*TheTraPest*]{.smallcaps}) have been obta
 4.  Parameter extraction and *TheTraPest* database assembly.
 
 ```{r}
-thetrapest <- read_csv("thermal_traits_individual.csv") %>% 
+thetrapest <- read_csv("C:/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/thermal_traits_individual.csv") %>% 
   glimpse()
 ```
 
