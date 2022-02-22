@@ -1,0 +1,11 @@
+---
+title: "acari_fit_example_metapool"
+author: "Darío San Segundo Molina"
+date: "17/2/2022"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# 

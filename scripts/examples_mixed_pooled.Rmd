@@ -23,7 +23,6 @@ library(knitr)
 library(dmetar)
 library(sjstats)
 library(parameters)
-SuicidePrevention #data from dmetar package in meta-analysis context
 
 briere1 <- function(a, temp, Tmin, Tmax){
   a*temp*(temp-Tmin)*(Tmax-temp)^(1/2)
@@ -39,64 +38,138 @@ Topt <- function(Tmin,Tmax,m){
 Para ello, primero cargamos los datos y cogemos solo los de ácaros.
 
 ```{r}
-#  intrapest_test <-read_csv("/Users/dario-ssm/Documents/Dario Investigacion#   /IntRaPest/intrinsic_rates_pests/data/IR_data_complete_sim.csv" ) %>%
-#     filter(id != 19 & id != 47 & order == "Acari>Prostigmata" | order =="Acari#   >Trombidiformes") %>% 
-#     mutate(order = "Acari") %>% 
-#     mutate(weights_meta = 1/(sd^2)) %>% 
-#     glimpse()
-#   
-#   kable(intrapest_test)
+  intrapest_test <-read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_data_complete_sim.csv" ) %>%
+     filter(id != 19 & id != 47 & order == "Acari>Prostigmata" | order =="Acari#   >Trombidiformes") %>% 
+     mutate(order = "Acari") %>% 
+     mutate(sigma = sd^2) %>% 
+     glimpse()
+   
+   kable(intrapest_test)
 ```
+
+# LINEAR MODELS:
 
 ## 1. `nlme` package
 
-#### a) `lme()`
+### a) `lme()`
+
+#### *i*) random-effects
 
 Asumiendo linealidad para comprender la estructura del modelo y del
 output, probamos con esta función primero.
 
 Probamos primero modelo *random-effects* para la tasa de crecimiento
-intrínseco sin tener en cuenta la temperatura
+intrínseco sin tener en cuenta la temperatura y pesando por varianza.
 
 ```{r}
- re_lme_acari <- lme(r ~ 1, 
+ ranint_lme_acari <- lme(r ~ 1, 
                      random = ~ 1|id,
-                     weights = ~ weights_meta,
+                     weights = ~sigma,
                      data = intrapest_test) 
- summary(re_lme_acari)
+ ranint_lme_acari
+ summary(ranint_lme_acari)
 ```
 
-Error log-cholesky, para variar. Es que claramente esto no es linear.
+En este caso, ponemos `weights = varIdent(~sigma)` y no la inversa de la
+varianza porque el propio paquete `nlme` asume la inversa en el
+argumento `weights`. Los resultados son los siguientes:
+
+-   **Between-studies heterogeneity**: *τ* ^2^ = 0.061
+-   **Whithin-studies heterogeneity**: 0.09723195
+-   **Mean estimate:** *r*~m~ = 0.1969725
+
+#### *ii*) temperature as covariate: meta-regression
+
+Now we fit the same model except for adding covariate *temperature* in
+the right term of formula. Note that even though variance increasing
+along temperature, here we only report median variance as proxy of
+accuracy to proper weighting.
+
+-   ***Random-Intercept:*** study is assumed to be affecting only to the
+    *r*~m~ position but not to its relation with temperature
 
 ```{r}
- re_lme_acari <- lme(r ~ temp, 
-                     random = ~ 1|id,
-                     weights = ~ weights_meta,
+ rantemp_lme_acari <- lme(r ~ temp,
+                          random = ~ 1|Authors,
+                     data = intrapest_test,
+                     weights = ~sigma)
+ rantemp_lme_acari
+ summary(rantemp_lme_acari)
+ # Estimates: -0.10052042  0.01167114 
+ # tau^2 = 0.06046824 
+ # loglik = -2458.185
+ 
+rantemp_lme_acari2 <- lme(r ~ temp,
+                          random = ~ 1|id,
+                          weights = varIdent(~sigma),
                      data = intrapest_test) 
- summary(re_lme_acari)
+ rantemp_lme_acari2
+ summary(rantemp_lme_acari2)
+ # Estimates: b0 = -0.086, 0.01172
+ # tau^2 = 0.0602
+ # loglik = 2518.7
+ identical(rantemp_lme_acari,rantemp_lme_acari)
 ```
 
-De esa tabla destacan:
+The output gives the following:
 
--   La **between-studies** variance (Q~bet~ = 0.065) y la
-    **within-studies** variance
+-   **Between-studies heterogeneity**: *τ* ^2^ = 0.060
+
+-   **Whithin-studies heterogeneity**: 0.06385733
+
+-   **Mean estimate:**
+
+    -   *b*~0~ = 0.1969725
+
+    -   *b* = 0.01172060
 
 #### b) nlme()
 
 ```{r}
+var_struc <- varExp(form = ~temp)
 start_nls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
                   start = c(a = 9e-05, Tmin = 8, Tmax = 40),
-                  weights = varExp(0.025,~weights_meta),
-                  data = intrapest_test,
-                  control = gnlsControl(nlsTol = 1,
-                                        tolerance = 1))
+                  weights = varComb(varIdent(~sigma),
+                                    var_struc),
+                  data = intrapest_test)
+start_nls
+summary(start_nls)
+## a = 1.141e-04, Tmin = 6.60, Tmax = 41.49; loglik = 2359,51, expon = 0.08
+
+start_nls2 <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                  start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                  data = intrapest_test)
+start_nls2
+summary(start_nls2)
+## a = 1.16e-04, Tmin=6.79, Tmax = 41.40; loglik = 1953.128, expon = "none"
+
+start_nls3 <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                  start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                  weights = var_struc,
+                  data = intrapest_test)
+start_nls3
+summary(start_nls3)
+## a = 1.140e-04, Tmin=6.60, Tmax = 41.49; loglik = 2359, expon = 0.08
+
+start_nls4 <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                  start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                  weights = varIdent(~sigma),
+                  data = intrapest_test)
+start_nls4
+summary(start_nls4)
+## a = 1.16e-04, Tmin=6.79, Tmax = 41.40; loglik = 1953.128, expon = "none"
+
+
+
+
+
 startvals_sum <- summary(start_nls)
 startvals <- coef(startvals_sum)[1:3,1]
 nlme_random_temp_only <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
                               start = startvals, 
                               fixed = a+Tmin+Tmax ~ 1, 
                               random =a+Tmin+Tmax ~ 1|id,
-                              weights = varExp(,temp~weights_meta),
+                              weights = varComb(,temp~weights_meta),
                               data = intrapest_test,
                               control = nlmeControl(pnlsTol = 100)) 
 summary(nlme_random_temp_only)
@@ -118,29 +191,33 @@ level 0; block 1
 
 #### 3.1. Random-intercept (SMD)
 
-First with
-dmeta::[ThirdWave](https://dmetar.protectlab.org/reference/ThirdWave.html)
-dataset. It has a standardised mean difference as effect-size
+First with lepidoptera_mating from Koricheva *et al.* (2013) dataset. It
+has a standardised mean difference as effect-size.
 
 ```{r}
-ThirdWave
+lepi <- read_csv("~/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/lepidoptera_mating.csv")
+lepi_test <- lepi %>% 
+  mutate(yi = as.numeric(yi)) %>% 
+  drop_na() %>% 
+  print()
 ```
 
 Let's first use a `lme` model:
 
 ```{r}
-lme_1<- lme(TE  ~ 1,
-            random = ~ 1|Author,
-            weights = ~ parameters::standard_error(seTE),
-            data = ThirdWave)
+lepi_lme_1 = lme(yi~1,
+                 weights=~vi,
+                 random=~1|as.factor(Species),
+                 data = lepi_test)
+lepi_lme_1
 lme_1
 summary(lme_1)
 
 ```
 
-We see here that the *τ*^2^ is **0.443** (*between-studies
-heterogeneity)*. The *within-studies* heterogeneity value is 0.166. The
-**estimate** (summary effect) is **0.643**
+We see here that the ***τ*** ^**2**^ is **0.2291187** (*between-studies
+heterogeneity)*. The *within-studies* heterogeneity value is 0.7882594.
+The **estimate** (summary effect) is **0.4280617**
 
 Now let's see this example with `brms`. First we define the prior.
 According to Harrer et al. 2021 (cite it!), null model says a
@@ -156,82 +233,474 @@ prior_ranint_1 <-  c(set_prior("normal(0,1)", class = "Intercept"),
 And fit the model:
 
 ```{r}
-bayes_mod_1 <- brm(TE|se(seTE) ~ 1 + (1|Author),
-                   data = ThirdWave,
+bayes_mod_1 <- brm(yi|se(vi) ~ 1 + (1|Species),
+                   data = lepi_test,
                    prior = prior_ranint_1,
                    iter = 4000)
 summary(bayes_mod_1)
 ```
 
-As in the example, the *between-studies* *heterogeneity* is **0.29**
-with a BCI of [0.12, 0.51]; the estimate (*summary effect)* is **0.57**,
-with a 95% BCI [0.40, 0.76].
+As in the example, the *between-studies* *heterogeneity **τ*** ^**2**^
+= **0.31** with a BCI of [0.21, 0.46]; the estimate (*summary effect)*
+is **0.43**, with a 95% BCI [0.28, 0.57].
 
 #### 3.2. incorporating a covariate: meta-regression
 
-Now we fit a **hierarchical model with meta-regression**. We will use
-the `dmetar::MVRegressionData`.
+Now we fit a **hierarchical model with meta-regression**. In the case of
+lepidoptera, we are using polyandry as covariate.
+
+##### - Grouping to random-intercept only:
 
 ```{r}
-dataset_metareg <- MVRegressionData %>% 
-  mutate(id = seq(1:length(yi)))
-kable(dataset_metareg)
-```
-
-First, let's fit a `lme` model for y~*i*~ \~ publication year
-(meta-regression) with *id* as study marker.
-
-```{r}
-lme_ranreg_1 <- lme(yi ~ pubyear,
-                  weights = ~se(sei),
-                  random = ~ 1|id,
-                  data = dataset_metareg)
-lme_ranreg_1
-summary(lme_ranreg_1)
+lepi_lme_2 = lme(yi~polyandry,
+                 weights=~vi,
+                 random=~1|as.factor(Species),
+                 data = lepi_test)
+lepi_lme_2
+summary(lepi_lme_2)
 
 ```
 
-Here, the **summary estimate intercept** is **0.59** and the **summary
-estimate slope** is **0.444.** (including se, 0.64 and 0.50 with *τ* ^2^
-= 0.354).
+Here, the **summary estimate intercept** is **0.53** and the **summary
+estimate slope** is **-0.002.**
 
-The **between-studies heterogeneity** *τ* ^2^ = 1.15e-05 and a
-**within-studies heterogeneity** of 0.684. Now we have 36 observations
-rather than 18, since there are now two parameters (slope and intercept)
-for each observation rather than 1 in the previous example (only an
-intercept for each study).
+The **between-studies heterogeneity** *τ* ^2^ = 0.22 and a
+**within-studies heterogeneity** of 0.86.
 
 Let's fit it with bayesian inference using `brms`. First of all, we need
 to set a prior. Let's see what parameters and what values are assigned
 by default in brm():
 
 ```{r}
-bayes_mod_2 <- brm(yi|se(sei) ~ pubyear + (1|id),
-                   data = dataset_metareg,
+bayes_mod_2 <- brm(yi|se(vi) ~ polyandry + (1|Species),
+                   data = lepi_test,
                    iter = 4000)
-prior_summary(bayes_mod_2)
 summary(bayes_mod_2)
-kable(prior_summary(bayes_mod_2))
+prior_summary(bayes_mod_2)
+)
 
 ```
 
-With noninformative priors, **estimates** are similar (0.58 for
-intercept and 0.42 for slope). **Between-studies heterogeneity** is now
-0.17 (BCI: [0.03,0.31]).
+With noninformative priors, **estimates** are similar (**0.49** for
+intercept [0.20, 0.79] and **0.00** for slope). **Between-studies
+heterogeneity** is now **0.32** (BCI: [0.21, 0.49]).
+
+##### - Grouping to random-intercept and slope:
 
 ```{r}
-
-prior_ranint_1 <-  c(set_prior("normal(0,1)", class = "Intercept"),
-                     set_prior("cauchy(0,0.5)", class = "sd"))
+lepi_lme_2 = lme(yi~polyandry,
+                 weights=~vi,
+                 random= ~ 1 + polyandry|as.factor(Species),
+                 data = lepi_test)
+lepi_lme_2
+summary(lepi_lme_2)
 
 ```
+
+# NON-LINEAR MODELS:
+
+## 1. `nlme` package
+
+### a) `nlme()`
+
+Let's use Orange dataset <https://rpubs.com/aforren1/orange-nonlinear>
+an add one weighting var.
 
 ```{r}
-bayes_mod_1 <- brm(yi|(sei) ~ pubyear + (1|id),
-                   data = dataset_metareg,
-                   prior = prior_ranint_1,
-                   iter = 4000)
-summary(bayes_mod_1)
+var_example <- rnorm(35,0.1,0.01)
+orange_meta <- Orange %>% 
+  bind_cols(vi = var_example) %>% 
+  ungroup() %>% 
+  print()
 ```
 
-a
+Let's fit a hierarchical nonlinear model using a three parameter
+equation (`phi1`, `phi2`, `phi3`), assuming that phi1 is affected by
+tree. First we fit a `nlme`model:
+
+```{r}
+f1 <- circumference ~ phi1 / (1 + exp(-(age - phi2)/phi3))
+n1 <- nls(f1,
+          data = orange_meta,
+          start = list(phi1 = 200, phi2 = 700, phi3 = 350))
+n2 <- nlme(f1,
+           data = orange_meta,
+           fixed = phi1 + phi2 + phi3 ~ 1,
+           random = phi1 ~ 1,
+           groups = ~ Tree,
+           weights = ~vi,
+           start = coef(n1))
+n2
+
+```
+
+-   **Summary effects**
+
+    -   *phi1 phi2 phi3*
+
+    <!-- -->
+
+        191.2427 723.3778 344.7062
+
+-   The **between-trees heterogeneity** *τ* ^2^ = 31.56 and a
+    **within-trees heterogeneity** of 24.65228.
+
+## 2. Bayesian
+
+And now with brms
+
+```{r}
+prior_1 <- c(set_prior("normal(200, 50)", nlpar = "phi1"),
+             set_prior("normal(700, 50)", nlpar = "phi2"),
+             set_prior("normal(350, 50)", nlpar = "phi3"))
+#prior_2 <- rbind(prior_1, set_prior("cauchy(30,2)", class = "sd"))
+
+f1 <- circumference ~ phi1 / (1 + exp(-(age - phi2)/phi3))
+orange_formula <- bf(circumference|se(vi) ~ phi1 / (1 + exp(-(age - phi2)/phi3)),
+                             # Nonlinear variables
+                              nonlinear = list(phi1 ~ (1|Tree),
+                                               phi2 ~ 1,
+                                               phi3 ~ 1),
+                             # Nonlinear fit
+                              nl = TRUE)
+
+n2_b <- brm(orange_formula, 
+            data = orange_meta,
+            prior = prior_1,
+            chains = 3,
+            iter = 4000)
+summary(n2_b)
+```
+
+-   **Summary effects**
+
+    -   *phi1 phi2 phi3*
+
+    <!-- -->
+
+        193.59 723.00 347.40
+
+[157.57, 232.91] [670.18, 778.27] [304.40, 392.84]
+
+-   The **between-trees heterogeneity** *τ* ^2^ = 45.01 [21.59, 97.20]
+    and a **within-trees heterogeneity** of 24.65228.
+
+Note that if we add weights, model convergence is not achieved (probably
+due to invented data for vi). Let's check it out with other datasets:
+
+```{r}
+data(loss)
+loss
+example_function <- bf(cum ~ ult * (1 - exp(-(dev/theta)^omega)),
+                       ult ~ 1 + (1|AY),
+                       omega ~ 1,
+                       theta ~ 1,
+                       nl = TRUE)
+fit_loss <- brm(formula = example_function,
+                data = loss,
+                family = gaussian(),
+                prior = c(prior(normal(5000, 1000), nlpar = "ult"),
+                          prior(normal(1, 2), nlpar = "omega"),
+                          prior(normal(45, 10), nlpar = "theta")),
+                control = list(adapt_delta = 0.9)
+                )
+summary(fit_loss)
+```
+
+# My example
+
+Acari data
+
+```{r}
+intrapest_test <-read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_data_complete_sim.csv" ) %>%
+     filter(id != 19 & id != 47 & order == "Acari>Prostigmata" | order =="Acari#   >Trombidiformes") %>% 
+     mutate(order = "Acari") %>% 
+     mutate(vi = sd^2) %>% 
+  filter(temp > 0) %>% 
+     glimpse()
+   kable(intrapest_test)
+   ggplot(intrapest_test, aes(temp, r))+
+     geom_point(alpha=0.15, aes(color = as.factor(id)),position = position_jitter(width = 5, height = .05))+
+     theme_bw()
+```
+
+### lme
+
+Probamos primero modelo *random-effects* para la tasa de crecimiento
+intrínseco sin tener en cuenta la temperatura y pesando por varianza.
+
+```{r}
+ ranint_lme_acari <- lme(r ~ 1, 
+                     random = ~ 1|id,
+                     weights = varFixed(~vi),
+                     data = intrapest_test,
+                     control = lmeControl(sigma = 1,
+                                          apVar = TRUE)) 
+ ranint_lme_acari
+ summary(ranint_lme_acari)
+```
+
+En este caso, ponemos `weights = varIdent(~vi)` y no la inversa de la
+varianza porque el propio paquete `nlme` asume la inversa en el
+argumento `weights`. Los resultados son los siguientes:
+
+-   **Between-studies heterogeneity**: *τ* ^2^ = 0.061
+-   **Whithin-studies heterogeneity**: 0.09723195
+-   **Mean estimate:** *r*~m~ = 0.1969725
+-   **AIC**: -3442.599
+
+Si ponemos `weights = ~vi`,
+
+-   **Between-studies heterogeneity**: *τ* ^2^ = 0.06101645
+-   **Whithin-studies heterogeneity**: 0.09710657
+-   **Mean estimate:** *r*~m~ = 0.124744
+-   **AIC**: -2600
+
+CONCLUSIÓN: lo suyo es poner la PRIMERA.
+
+### nlme
+
+Vamos a probar la función gnls (sin random-effects) para nuestro
+modelo). Pero primero vamos a ver qué estructura de varianza tiene más
+sentido. Por un lado, asumimos que hay heteroscedasticidad, por lo que
+la varianza aumenta conforme aumenta la variable predictora
+(temperatura). Por ello usamos la estructura `varExp(~ temp)` en el
+argumento `weights`. Pero, al ser un metaanálisis, debemos ponderar
+cada estudio en función de su propia varianza muestral, de modo que
+debemos también incorporar un `varFixed(~vi)`. Para combinar las dos,
+utilizamos `varComb(varFixed(etc),varExp(etc))`. A continuación
+mostramos los outputs de todas las combinaciones teóricamente posibles.
+
+```{r}
+#varfixed por id (standard for meta-analysis)
+fixed_nls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                  start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                  weights = varFixed(value = ~vi), 
+                  data = intrapest_test,
+                  control = gnlsControl(nlsTol = 1e-01,
+                                        sigma = 1))
+sum_fixed <- summary(fixed_nls)
+fixed_vals <- c(sum_fixed$coefficients, sum_fixed$logLik, sum_fixed$AIC)
+
+#varExp
+exp_nls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                  start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                  weights = varExp(form = ~temp), 
+                  data = intrapest_test)
+sum_exp <- summary(exp_nls)
+exp_vals <- c(sum_exp$coefficients, sum_exp$logLik, sum_exp$AIC)
+
+#comb(varIdent por id, varExp)
+comb_gnls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                weights = varComb(varFixed(value = ~ vi),
+                                  varExp(form = ~ temp)),
+                data = intrapest_test,
+                control = gnlsControl(nlsTol = 1, nlsMaxIter = 15))
+sum_comb <- summary(comb_gnls)
+comb_vals <- c(sum_comb$coefficients, sum_comb$logLik, sum_comb$AIC)
+
+names_comparative <- c("a","Tmin","Tmax","log-lik","AIC")
+comparative <- rbind(fixed_vals, exp_vals, comb_vals)
+colnames(comparative) <- names_comparative
+kable(comparative)
+
+```
+
+De entre las dos combinaciones, si bienno es la que tiene menor AIC, la
+que incluye `varFixed(~vi)` es la que tiene más sentido estadístico en
+un metaanálisis (pues estamos incorporando como peso la varianza
+muestral de origen). Por tanto, **nos quedamos con la estructura:**
+
+`weights = varComb(varExp(~temp), varFixed(~vi))`.
+
+Visto esto, ahora vamos a probar lo mismo en un modelo mixto con la
+función `nlme()`:
+
+```{r}
+#Use estimates of gnls model as starting values
+start_gnls <- comb_gnls$coefficients
+
+acari_nlme <- nlme(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                   start = start_gnls,
+                   fixed = a+Tmin+Tmax ~ 1,
+                   groups = ~ as.factor(id),
+                   weights = varComb(varFixed(value = ~vi),
+                                     varExp(form = ~ temp)),
+                   data = intrapest_test,
+                   control = nlmeControl(msMaxIter = 100,
+                                         maxIter =  100,
+                                         pnlsTol = 1e-01,
+                                         sigma = 1)
+)
+sum_nlme_acari <- summary(acari_nlme)
+kable(sum_nlme_acari$tTable)
+)
+# Std: a = 0.0001002255,  Tmin = 4.1490475052  ,  Tmax = 9.1977371546 ,   Resid = 5.34e-03
+# Est: a = 1.72e-04,  Tmin = 8.31,  Tmax = 40.88,
+# log-lik: 3539.73
+# expon: 0.079
+
+```
+
+Funciona bien el modelo nlme. Según Wolfgang Viechtbauer, el creador
+del paquete **`metafor`**, habría que añadir un
+`(n)lmeControl(sigma = 1)` :
+
+> *"First of all, it's good to see that you are well aware of the fact
+> that lme() without lmeControl(sigma=1) will lead to the estimation of
+> the residual variance component, which implies that the sampling
+> variances specified via varFixed() are only assumed to be known up to
+> a proportionality constant -- however, in the usual meta-analytic
+> models, we assume that the sampling variances are exactly known. In
+> fact, trying to disentangle that residual variance component from any
+> random study effects is usually next to impossible. I mention this
+> explicitly one more time, because I have seen some publications using
+> lme() in exactly this way ..."* -- Viechtbauer ([blog
+> response](https://r-help.stat.math.ethz.narkive.com/ClFcC12h/r-mixed-effects-meta-regression-nlme-vs-metafor)).
+
+También cabe señalar sobre añadir a `nlmeControl()` el argumento
+`sigma = 1`, tal y como se señala en Heisterkamp (2017):
+
+> *For some applications, it is not appropriate to estimate the residual
+> error, especially when it is known in advance based on evidence from
+> past studies, or a theoretically derived scaling parameter. An example
+> of the former are meta-analyses where the standard deviation of
+> individual patient outcomes in each study is reported.*
+
+Y según Pustejovski (2016) en [esta entrada de
+blog](https://www.jepusto.com/bug-in-nlme-with-fixed-sigma/):
+
+> *About one year ago, the `nlme` package introduced a feature that
+> allowed the user to specify a fixed value for the residual variance in
+> linear mixed effect models fitted with `lme()`. This feature is
+> interesting to me because, when used with the `varFixed()`
+> specification for the residual weights, it allows for estimation of a
+> wide variety of meta-analysis models, including basic random effects
+> models, bivariate models for estimating effects by trial arm, and
+> other sorts of multivariate/multi-level random effects models.*
+
+Y sin embargo Koricheva *et al.* (2013) señalan que para obtener la
+*within-studies* variance se utiliza el valor que se obtiene por defecto
+sin utilizar este argumento sigma. Por tanto, usando el
+`nlmeControl(sigma = 1)`, la *between-studies* serían los valores de
+Std.Dev de la tabla para los parámetros y la *within-studies variance*
+sería el valor de Stdev para los residuos:
+
+```{r}
+kable(VarCorr(sum_nlme_acari))
+
+```
+
+Por tanto:
+
+-   **Between-studies heterogeneity**:
+
+    -   *τ~a~* = 0.0001002255
+
+    -   *τ~Tmin~* = 4.1490475052
+
+    -   *τ~Tmax~* = 9.1977371546
+
+<!-- -->
+
+-   **Within-studies heterogeneity**: 0.03921411 ???
+-   **AIC**: -2600
+-   **Parameter estimates and errors**:
+
+```{r}
+kable(sum_nlme_acari$tTable)
+```
+
+En cambio, sin utilizar ese argumento `(sigma = NULL)`, las varianzas
+quedan así:
+
+```{r}
+acari_nlme_nosigma <- nlme(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                   start = start_gnls,
+                   fixed = a+Tmin+Tmax ~ 1,
+                   groups = ~ as.factor(id),
+                   weights = varComb(varFixed(value = ~vi),
+                                     varExp(form = ~ temp)),
+                   data = intrapest_test,
+                   control = nlmeControl(msMaxIter = 100,
+                                         maxIter =  100,
+                                         pnlsTol = 1e-01)
+)
+sum_nlme_acari_nosigma <- summary(acari_nlme_nosigma)
+VarCorr(sum_nlme_acari_nosigma)
+kable(sum_nlme_acari$tTable)
+
+```
+
+Por tanto, las *between-studies variances* para los distintos
+parámetros apenas varían pero sí lo hace la *within-studies*
+variance, pues al no fijarla en 1 queda como 1.213.
+
+La conclusión a la que llego
+
+OJO PORQUE CREO QUE PARA COGER LA SAMPLING VARIANCE SIMPLEMENTE TENGO
+QUE ELEVAR AL CUADRADO EL ERROR ESTÁNDAR DE LOS ESTUDIOS DE ORIGEN
+
+Vamos a probar incorporando covariable latitud
+
+```{r}
+start_gnls <- comb_gnls$coefficients
+start_cov <- c(start_gnls[1],
+               start_gnls[2],
+               0,
+               start_gnls[3],
+               0)
+acari_nlme_covs <- nlme(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                   start = start_cov,
+                   fixed = list(a ~1,
+                                Tmin ~ 1+lat,
+                                Tmax ~ 1+lat),
+                   groups =  ~ as.factor(id),
+                   weights = varComb(varFixed(value = ~vi),
+                                     varExp(form = ~ temp)),
+                   data = intrapest_test,
+                   control = nlmeControl(msMaxIter = 100,
+                                         maxIter =  100,
+                                         pnlsTol = 1e-01,
+                                         sigma = 1)
+)
+sum_nlme_acari <- summary(acari_nlme_covs)
+kable(sum_nlme_acari$tTable)
+```
+
+### brms
+
+Vamos a probar ahora con el enfoque Bayesiano. En este caso, tenemos que
+tener en cuenta qué hacer con el *prior*. Vamos a asumir que:
+
+-   a = 0.0002 [0.0001, 0.003]
+
+-   Tmin = 8 [4,10]
+
+-   Tmax = 40 [35,45]
+
+Siguiendo la
+[documentación](https://www.rdocumentation.org/packages/brms/versions/2.16.3/topics/brmsformula)
+de `brmsformula()`, podemos dar variación aleatoria a cada parámetro
+así: `Tmin ~ 1|id` o incluir otra variable, por ejemplo *latitud*:
+`Tmin ~1 + lat + 1|id`.
+
+```{r}
+prior_1 <- c(set_prior("normal(0.0002, 0.0001)", nlpar = "a"),
+             set_prior("normal(8, 6)", nlpar = "Tmin"),
+             set_prior("normal(40, 10)", nlpar = "Tmax"))
+
+
+briere1_bf <- bf(r|se(vi) ~ a*temp*(temp-Tmin)*((Tmax-temp)^(1/2)),
+                 a ~ 1 + (1|id),
+                 Tmin ~ 1 + (1|id),
+                 Tmax ~ 1 + (1|id),
+                 nl = TRUE)
+briere_fit <- brm(briere1_bf, 
+                  data = intrapest_test,
+                  prior = prior_1,
+                  chains = 4,
+                  iter = 4000)
+summary(briere_fit)
+```
