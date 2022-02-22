@@ -25,7 +25,7 @@ setwd("~/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data")
 IR_data_all <- read_csv("IR_data_all_clean.csv") %>% 
   rename(r = growth_rate,
          temp = temperature)
-intrapest_simulations_rep <- read_csv("simulations_pooled.csv") %>% 
+intrapest_simulations_rep <- read_csv("~/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/simulations_pooled.csv") %>% 
   select(-nrep) %>% 
   glimpse()
 
@@ -67,7 +67,7 @@ scatter_no_sims <- ggplot(IR_data_all, aes(temp,r))+
              alpha = 0.5,
              position = position_jitter(width = 2))+
   ggdark::dark_theme_light()+
-  labs(x = "Temperature (ºC)",
+  labs(x = "Temperature (?C)",
        y = "Intrinsic rate of increase (r)")+
   theme(legend.position = "none")
 scatter_no_sims

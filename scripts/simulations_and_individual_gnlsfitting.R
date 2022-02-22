@@ -281,7 +281,7 @@ for (i in distinct_ids$id){
   set.seed(654)
   IR_data_ID <- IR_data_all %>% 
     filter(id==i) 
-  png(filename = paste0("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data_",i,".png"))
+  png(filename = paste0("/Users/Ecologia/Desktop/DAR?O_actualizada septiembre 2021/Intrinsic_metaanalysis/synchro_github_ir/intrinsic_rates_pests/data_",i,".png"))
   plot(IR_data_ID$temperature,IR_data_ID$growth_rate) 
   dev.off()
   myList_i <- tibble(a_est = rep(NULL,length(distinct_ids$id)), #create a list to use as replacement of NULLs in dplyr format
@@ -539,24 +539,24 @@ for (i in distinct_ids$id){
     sim_r <- rnorm(n,mu,sd)
     simul_ID[simul_ID$temp == temper,"r"] <- tibble(sim_r) 
   }
-  empty_simulations <- empty_simulations %>% 
+  empty_less_simulations <- empty_less_simulations %>% 
     bind_rows(simul_ID) 
 }
-simulations_less_dataset <- empty_simulations
+simulations_less_dataset <- empty_less_simulations
 write_csv(simulations_less_dataset,"simulations_less_dataset.csv")
 
 
 # Appendix I. Decisions to exclude papers ---------------
-#ID ¿? <- no explanation nor discussion of such those high values in rm.
+#ID ?? <- no explanation nor discussion of such those high values in rm.
 #         methods seem adequate, n's are high, seems like typo error. Almost
 #         two orders of magnitude above r values.
 # http://www.scielo.org.ar/pdf/rsea/v78n4/v78n4a05.pdf 
 
-# ID ¿? <- no apparent problems (there is only one slightly high value of 
+# ID ?? <- no apparent problems (there is only one slightly high value of 
 # error in the 25?C treatment, but within the same order of magnitude)
 # https://journals.flvc.org/flaent/article/view/83895/80785
 
-# ID ¿? <- some problems:
+# ID ?? <- some problems:
 #           1) three order-magnitude higher errors for two first treatments 
 #           2) zero-rounded error for other variables (...)
 #           3) they do not discuss the errors
