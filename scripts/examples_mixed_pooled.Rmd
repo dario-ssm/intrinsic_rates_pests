@@ -240,9 +240,9 @@ bayes_mod_1 <- brm(yi|se(vi) ~ 1 + (1|Species),
 summary(bayes_mod_1)
 ```
 
-As in the example, the *between-studies* *heterogeneity **τ*** ^**2**^ =
-**0.31** with a BCI of [0.21, 0.46]; the estimate (*summary effect)* is
-**0.43**, with a 95% BCI [0.28, 0.57].
+As in the example, the *between-studies* *heterogeneity **τ*** ^**2**^
+= **0.31** with a BCI of [0.21, 0.46]; the estimate (*summary effect)*
+is **0.43**, with a 95% BCI [0.28, 0.57].
 
 #### 3.2. incorporating a covariate: meta-regression
 
@@ -336,12 +336,16 @@ n2
 
 -   **Summary effects**
 
-    -    *phi1 phi2 phi3*
+    -   *phi1 phi2 phi3*
+
+    <!-- -->
 
         191.2427 723.3778 344.7062
 
 -   The **between-trees heterogeneity** *τ* ^2^ = 31.56 and a
     **within-trees heterogeneity** of 24.65228.
+
+## 2. Bayesian
 
 And now with brms
 
@@ -370,7 +374,9 @@ summary(n2_b)
 
 -   **Summary effects**
 
-    -    *phi1 phi2 phi3*
+    -   *phi1 phi2 phi3*
+
+    <!-- -->
 
         193.59 723.00 347.40
 
@@ -398,4 +404,303 @@ fit_loss <- brm(formula = example_function,
                           prior(normal(45, 10), nlpar = "theta")),
                 control = list(adapt_delta = 0.9)
                 )
+summary(fit_loss)
+```
+
+# My example
+
+Acari data
+
+```{r}
+intrapest_test <-read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_data_complete_sim.csv" ) %>%
+     filter(id != 19 & id != 47 & order == "Acari>Prostigmata" | order =="Acari#   >Trombidiformes") %>% 
+     mutate(order = "Acari") %>% 
+     mutate(vi = sd^2) %>% 
+  filter(temp > 0) %>% 
+     glimpse()
+   kable(intrapest_test)
+   ggplot(intrapest_test, aes(temp, r))+
+     geom_point(alpha=0.15, aes(color = as.factor(id)),position = position_jitter(width = 5, height = .05))+
+     theme_bw()
+```
+
+### lme
+
+Probamos primero modelo *random-effects* para la tasa de crecimiento
+intrínseco sin tener en cuenta la temperatura y pesando por varianza.
+
+```{r}
+ ranint_lme_acari <- lme(r ~ 1, 
+                     random = ~ 1|id,
+                     weights = varFixed(~vi),
+                     data = intrapest_test,
+                     control = lmeControl(sigma = 1,
+                                          apVar = TRUE)) 
+ ranint_lme_acari
+ summary(ranint_lme_acari)
+```
+
+En este caso, ponemos `weights = varIdent(~vi)` y no la inversa de la
+varianza porque el propio paquete `nlme` asume la inversa en el
+argumento `weights`. Los resultados son los siguientes:
+
+-   **Between-studies heterogeneity**: *τ* ^2^ = 0.061
+-   **Whithin-studies heterogeneity**: 0.09723195
+-   **Mean estimate:** *r*~m~ = 0.1969725
+-   **AIC**: -3442.599
+
+Si ponemos `weights = ~vi`,
+
+-   **Between-studies heterogeneity**: *τ* ^2^ = 0.06101645
+-   **Whithin-studies heterogeneity**: 0.09710657
+-   **Mean estimate:** *r*~m~ = 0.124744
+-   **AIC**: -2600
+
+CONCLUSIÓN: lo suyo es poner la PRIMERA.
+
+### nlme
+
+Vamos a probar la función gnls (sin random-effects) para nuestro
+modelo). Pero primero vamos a ver qué estructura de varianza tiene más
+sentido. Por un lado, asumimos que hay heteroscedasticidad, por lo que
+la varianza aumenta conforme aumenta la variable predictora
+(temperatura). Por ello usamos la estructura `varExp(~ temp)` en el
+argumento `weights`. Pero, al ser un metaanálisis, debemos ponderar
+cada estudio en función de su propia varianza muestral, de modo que
+debemos también incorporar un `varFixed(~vi)`. Para combinar las dos,
+utilizamos `varComb(varFixed(etc),varExp(etc))`. A continuación
+mostramos los outputs de todas las combinaciones teóricamente posibles.
+
+```{r}
+#varfixed por id (standard for meta-analysis)
+fixed_nls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                  start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                  weights = varFixed(value = ~vi), 
+                  data = intrapest_test,
+                  control = gnlsControl(nlsTol = 1e-01,
+                                        sigma = 1))
+sum_fixed <- summary(fixed_nls)
+fixed_vals <- c(sum_fixed$coefficients, sum_fixed$logLik, sum_fixed$AIC)
+
+#varExp
+exp_nls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                  start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                  weights = varExp(form = ~temp), 
+                  data = intrapest_test)
+sum_exp <- summary(exp_nls)
+exp_vals <- c(sum_exp$coefficients, sum_exp$logLik, sum_exp$AIC)
+
+#comb(varIdent por id, varExp)
+comb_gnls <- gnls(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                start = c(a = 9e-05, Tmin = 8, Tmax = 40),
+                weights = varComb(varFixed(value = ~ vi),
+                                  varExp(form = ~ temp)),
+                data = intrapest_test,
+                control = gnlsControl(nlsTol = 1, nlsMaxIter = 15))
+sum_comb <- summary(comb_gnls)
+comb_vals <- c(sum_comb$coefficients, sum_comb$logLik, sum_comb$AIC)
+
+names_comparative <- c("a","Tmin","Tmax","log-lik","AIC")
+comparative <- rbind(fixed_vals, exp_vals, comb_vals)
+colnames(comparative) <- names_comparative
+kable(comparative)
+
+```
+
+De entre las dos combinaciones, si bienno es la que tiene menor AIC, la
+que incluye `varFixed(~vi)` es la que tiene más sentido estadístico en
+un metaanálisis (pues estamos incorporando como peso la varianza
+muestral de origen). Por tanto, **nos quedamos con la estructura:**
+
+`weights = varComb(varExp(~temp), varFixed(~vi))`.
+
+Visto esto, ahora vamos a probar lo mismo en un modelo mixto con la
+función `nlme()`:
+
+```{r}
+#Use estimates of gnls model as starting values
+start_gnls <- comb_gnls$coefficients
+
+acari_nlme <- nlme(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                   start = start_gnls,
+                   fixed = a+Tmin+Tmax ~ 1,
+                   groups = ~ as.factor(id),
+                   weights = varComb(varFixed(value = ~vi),
+                                     varExp(form = ~ temp)),
+                   data = intrapest_test,
+                   control = nlmeControl(msMaxIter = 100,
+                                         maxIter =  100,
+                                         pnlsTol = 1e-01,
+                                         sigma = 1)
+)
+sum_nlme_acari <- summary(acari_nlme)
+kable(sum_nlme_acari$tTable)
+)
+# Std: a = 0.0001002255,  Tmin = 4.1490475052  ,  Tmax = 9.1977371546 ,   Resid = 5.34e-03
+# Est: a = 1.72e-04,  Tmin = 8.31,  Tmax = 40.88,
+# log-lik: 3539.73
+# expon: 0.079
+
+```
+
+Funciona bien el modelo nlme. Según Wolfgang Viechtbauer, el creador
+del paquete **`metafor`**, habría que añadir un
+`(n)lmeControl(sigma = 1)` :
+
+> *"First of all, it's good to see that you are well aware of the fact
+> that lme() without lmeControl(sigma=1) will lead to the estimation of
+> the residual variance component, which implies that the sampling
+> variances specified via varFixed() are only assumed to be known up to
+> a proportionality constant -- however, in the usual meta-analytic
+> models, we assume that the sampling variances are exactly known. In
+> fact, trying to disentangle that residual variance component from any
+> random study effects is usually next to impossible. I mention this
+> explicitly one more time, because I have seen some publications using
+> lme() in exactly this way ..."* -- Viechtbauer ([blog
+> response](https://r-help.stat.math.ethz.narkive.com/ClFcC12h/r-mixed-effects-meta-regression-nlme-vs-metafor)).
+
+También cabe señalar sobre añadir a `nlmeControl()` el argumento
+`sigma = 1`, tal y como se señala en Heisterkamp (2017):
+
+> *For some applications, it is not appropriate to estimate the residual
+> error, especially when it is known in advance based on evidence from
+> past studies, or a theoretically derived scaling parameter. An example
+> of the former are meta-analyses where the standard deviation of
+> individual patient outcomes in each study is reported.*
+
+Y según Pustejovski (2016) en [esta entrada de
+blog](https://www.jepusto.com/bug-in-nlme-with-fixed-sigma/):
+
+> *About one year ago, the `nlme` package introduced a feature that
+> allowed the user to specify a fixed value for the residual variance in
+> linear mixed effect models fitted with `lme()`. This feature is
+> interesting to me because, when used with the `varFixed()`
+> specification for the residual weights, it allows for estimation of a
+> wide variety of meta-analysis models, including basic random effects
+> models, bivariate models for estimating effects by trial arm, and
+> other sorts of multivariate/multi-level random effects models.*
+
+Y sin embargo Koricheva *et al.* (2013) señalan que para obtener la
+*within-studies* variance se utiliza el valor que se obtiene por defecto
+sin utilizar este argumento sigma. Por tanto, usando el
+`nlmeControl(sigma = 1)`, la *between-studies* serían los valores de
+Std.Dev de la tabla para los parámetros y la *within-studies variance*
+sería el valor de Stdev para los residuos:
+
+```{r}
+kable(VarCorr(sum_nlme_acari))
+
+```
+
+Por tanto:
+
+-   **Between-studies heterogeneity**:
+
+    -   *τ~a~* = 0.0001002255
+
+    -   *τ~Tmin~* = 4.1490475052
+
+    -   *τ~Tmax~* = 9.1977371546
+
+<!-- -->
+
+-   **Within-studies heterogeneity**: 0.03921411 ???
+-   **AIC**: -2600
+-   **Parameter estimates and errors**:
+
+```{r}
+kable(sum_nlme_acari$tTable)
+```
+
+En cambio, sin utilizar ese argumento `(sigma = NULL)`, las varianzas
+quedan así:
+
+```{r}
+acari_nlme_nosigma <- nlme(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                   start = start_gnls,
+                   fixed = a+Tmin+Tmax ~ 1,
+                   groups = ~ as.factor(id),
+                   weights = varComb(varFixed(value = ~vi),
+                                     varExp(form = ~ temp)),
+                   data = intrapest_test,
+                   control = nlmeControl(msMaxIter = 100,
+                                         maxIter =  100,
+                                         pnlsTol = 1e-01)
+)
+sum_nlme_acari_nosigma <- summary(acari_nlme_nosigma)
+VarCorr(sum_nlme_acari_nosigma)
+kable(sum_nlme_acari$tTable)
+
+```
+
+Por tanto, las *between-studies variances* para los distintos
+parámetros apenas varían pero sí lo hace la *within-studies*
+variance, pues al no fijarla en 1 queda como 1.213.
+
+La conclusión a la que llego
+
+OJO PORQUE CREO QUE PARA COGER LA SAMPLING VARIANCE SIMPLEMENTE TENGO
+QUE ELEVAR AL CUADRADO EL ERROR ESTÁNDAR DE LOS ESTUDIOS DE ORIGEN
+
+Vamos a probar incorporando covariable latitud
+
+```{r}
+start_gnls <- comb_gnls$coefficients
+start_cov <- c(start_gnls[1],
+               start_gnls[2],
+               0,
+               start_gnls[3],
+               0)
+acari_nlme_covs <- nlme(r ~ briere1(a,temp = temp,Tmin,Tmax),
+                   start = start_cov,
+                   fixed = list(a ~1,
+                                Tmin ~ 1+lat,
+                                Tmax ~ 1+lat),
+                   groups =  ~ as.factor(id),
+                   weights = varComb(varFixed(value = ~vi),
+                                     varExp(form = ~ temp)),
+                   data = intrapest_test,
+                   control = nlmeControl(msMaxIter = 100,
+                                         maxIter =  100,
+                                         pnlsTol = 1e-01,
+                                         sigma = 1)
+)
+sum_nlme_acari <- summary(acari_nlme_covs)
+kable(sum_nlme_acari$tTable)
+```
+
+### brms
+
+Vamos a probar ahora con el enfoque Bayesiano. En este caso, tenemos que
+tener en cuenta qué hacer con el *prior*. Vamos a asumir que:
+
+-   a = 0.0002 [0.0001, 0.003]
+
+-   Tmin = 8 [4,10]
+
+-   Tmax = 40 [35,45]
+
+Siguiendo la
+[documentación](https://www.rdocumentation.org/packages/brms/versions/2.16.3/topics/brmsformula)
+de `brmsformula()`, podemos dar variación aleatoria a cada parámetro
+así: `Tmin ~ 1|id` o incluir otra variable, por ejemplo *latitud*:
+`Tmin ~1 + lat + 1|id`.
+
+```{r}
+prior_1 <- c(set_prior("normal(0.0002, 0.0001)", nlpar = "a"),
+             set_prior("normal(8, 6)", nlpar = "Tmin"),
+             set_prior("normal(40, 10)", nlpar = "Tmax"))
+
+
+briere1_bf <- bf(r|se(vi) ~ a*temp*(temp-Tmin)*((Tmax-temp)^(1/2)),
+                 a ~ 1 + (1|id),
+                 Tmin ~ 1 + (1|id),
+                 Tmax ~ 1 + (1|id),
+                 nl = TRUE)
+briere_fit <- brm(briere1_bf, 
+                  data = intrapest_test,
+                  prior = prior_1,
+                  chains = 4,
+                  iter = 4000)
+summary(briere_fit)
 ```
