@@ -1,5 +1,5 @@
-#### SCRIPT INFO ####     
-#     Authors: Darío San Segundo Molina, Sara Villén Pérez, Ignacio Morales Castilla
+# SCRIPT INFO --------------------
+#     Authors: Dar?o San Segundo Molina, Sara Vill?n P?rez, Ignacio Morales Castilla
 #     Title: trait inferences
 #     Aim: explore trait trends after model fitting from INTRAPEST database
 #     Date: October 2021
@@ -7,7 +7,7 @@
 
 
 
-# 1. Load Dataset ----
+# 1. Load Dataset & explore ranges ----
 rm(list=ls())
 #library(tidyverse)
 library(dplyr)
@@ -19,33 +19,24 @@ library(ggmap)
 library(performance)
 library(cowplot)
 library(wesanderson)
-thermal_traits_data_raw <- read_csv("/Users/Ecologia/Desktop/DARÍO_actualizada septiembre 2021/Intrinsic_metaanalysis/dataset_params_metaanalysis.csv") %>%
+thermal_traits_data_raw <- read_csv("parameters_individual_fitted.csv") %>%
+  rename(id=id, a_est = a_est, a_se = a_se, tmin = Tmin_est, tmin_se = Tmin_se,
+             tmax = Tmax_est, tmax_se = Tmax_se, topt = Value, topt_se = Topt_se,
+             start_a = starting_a, start_tmin = starting_Tmin, start_tmax = starting_Tmax )%>% 
   glimpse()
 ## apply filters 
-#NOT NECESSARY once the Analyses_nls&bootstrap script will have run
-#acari_raw <- thermal_traits_data_raw %>% #ensemble all acari
- # filter(order == "Acari>Prostigmata" | 
-  #         order == "Acari>Trombidiformes")%>%
-  #mutate(order = "Acari")
-#thermal_traits_data <- thermal_traits_data_raw %>%
- # filter(order != "Acari>Prostigmata" &
-  #         order != "Acari>Trombidiformes")%>%
-  # bind_rows(acari_raw)
-thermal_traits_data <- thermal_traits_data_raw %>%
-  filter(Tmin_est_nls >0 &
-         Tmin_se_nls <10 &
-         Tmax_se_nls <10 &
-         Tmax_est_nls < 45) %>%
-  glimpse() #15 studies discarded
+range(thermal_traits_data_raw$tmin)
+quantile(thermal_traits_data_raw$tmin)
 
-Tmin_est <- thermal_traits_data$Tmin_est_nls
-Tmin_se <- thermal_traits_data$Tmin_se_nls
-Tmax_est <- thermal_traits_data$Tmax_est_nls
-Tmax_se <- thermal_traits_data$Tmax_se_nls
-Topt_est <- thermal_traits_data$Topt_est
-Topt_se <- thermal_traits_data$Topt_se_delta
-lat <- thermal_traits_data$lat
-lon <- thermal_traits_data$lon
+range(thermal_traits_data_raw$tmax)
+quantile(thermal_traits_data_raw$tmax)
+
+range(thermal_traits_data_raw$topt)
+quantile(thermal_traits_data_raw$topt)
+
+thermal_traits_outliers <- thermal_traits_data_raw %>% 
+  filter(tmax >=60) %>% 
+  count(id)
 
 # 2. Exploratory data analysis ----
 # _ _ a) Tmin ----
@@ -140,7 +131,7 @@ all_loess_combined <- ggplot(thermal_traits_data)+
   geom_smooth(aes(x=abs(lat),y=Tmax_est_nls),color="red4",fill="red3")+
   geom_point(aes(x=abs(lat),y=Topt_est),color="mediumorchid4",alpha=0.5)+
   geom_smooth(aes(x=abs(lat),y=Topt_est),color="mediumorchid4",fill="mediumorchid3")+
-  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (ºC)")+
+  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (?C)")+
   theme_classic()
 all_loess_combined  
 
@@ -160,7 +151,7 @@ all_lms_combined <- ggplot(thermal_traits_data)+
               method="lm",
               color="mediumorchid4",
               fill="mediumorchid3")+
-  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (ºC)")+
+  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (?C)")+
   theme_classic()
 
 all_lms_combined
@@ -277,7 +268,7 @@ CombinedAcross_order_traits <- ggplot()+
   labs(title = "Thermal traits across taxa",
        subtitle= "Circles' size are proportional to sample size",
        x = "Order",
-       y = "Thermal traits (ºC)")+
+       y = "Thermal traits (?C)")+
   theme_cowplot()+
   theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
   geom_text(data=tmin_ranges,aes(x=order,
@@ -300,7 +291,7 @@ boxplot_traits_ord <- ggplot(data=thermal_traits_data, aes(x=order))+
                fill="indianred3")+
   labs(title = "Thermal traits across taxa",
        x = "Order",
-       y = "Thermal traits (ºC)")+
+       y = "Thermal traits (?C)")+
   theme_cowplot()+
   theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
   theme(legend.position = "none")
@@ -357,7 +348,7 @@ traits_across_orders_se <- ggplot()+
        subtitle= "Error bars represent average standard error within each group. 
 Circles' size are proportional to sample size",
        x = "Order",
-       y = "Thermal traits (ºC)")+
+       y = "Thermal traits (?C)")+
   theme_cowplot()+
   theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
   geom_text(data=tmax_se_pointrange,aes(x=order,

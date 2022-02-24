@@ -248,9 +248,9 @@ nlme_fit3 <- nlme(r ~ briere1(a,temp = temp,Tmin,Tmax),
                                     varExp(form = ~ temp)), # heteroscedasticity accounted for
                   data = order_subset,
                   correlation = corAR1(0.41606872),
-                  control = nlmeControl(msMaxIter = 100, #recommendation by the console
-                                        maxIter =  100, #recommendation by the console
-                                        pnlsTol = 10,
+                  control = nlmeControl(msMaxIter = 1000, #recommendation by the console
+                                        maxIter =  1000, #recommendation by the console
+                                        pnlsTol = 1,
                                         sigma = 1 # to avoid within-studies variance modelling (for meta-analysis) 
                   )
 )
@@ -410,7 +410,7 @@ lme_r_lat_temp_varExp_order <- lme(r ~ abs(lat) + temp + order,
 
 anova(lme_r_lat, lme_r_lat_varExp)
 
-# 6. ? ----------------
+w# 6. ? ----------------
 
 
 # 7. Orange example? ----------------
