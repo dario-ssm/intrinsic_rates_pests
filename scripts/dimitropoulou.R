@@ -43,3 +43,39 @@ merging <- inner_join(data_IPD,sum_dplyr) %>%
          arm = 1000 * study_i + group_i)  
 write.table(data1, file = "dimitropoulou_raw.txt", sep = ",", quote = FALSE, row.names = F)
 write.table(merging, file = "dimitropoulou.txt", sep = ",", quote = FALSE, row.names = F)
+
+
+# With our data... --------------------------------------------------------
+
+
+intrapest_raw <- read_csv("IR_data_all_clean.csv") %>% 
+  filter(sd_treat < 1) #exclude one with unusual large error treatment
+intrapest_rep <- data.frame(study = rep(intrapest_raw$id, intrapest_raw$n_1),
+                            r = rep(intrapest_raw$growth_rate, intrapest_raw$n_1),
+                            stdev = rep(intrapest_raw$sd_treat, intrapest_raw$n_1),
+                            temp = rep(intrapest_raw$temperature, intrapest_raw$n_1),
+                            order = rep(intrapest_raw$order, intrapest_raw$n_1),
+                            fg = rep(intrapest_raw$feeding_guild, intrapest_raw$n_1),
+                            lat = rep(abs(intrapest_raw$lat),intrapest_raw$n_1),
+                            year = rep(intrapest_raw$Year, intrapest_raw$n_1),
+                            vi = rep(intrapest_raw$vi, intrapest_raw$n_1))
+set.seed(654)
+intrapest_rep$r_sim = rnorm(n = nrow(intrapest_rep),
+                            0,
+                            1)
+intrapest_rep$r_sim = rnorm(n = nrow(intrapest_rep),
+                            mean = mean(intrapest_rep$r),
+                            sd = mean(intrapest_rep$stdev))
+
+
+sum_intrapest <- intrapest_rep %>% 
+  group_by(temp, study) %>% 
+  summarise(r_sum = mean(r_sim),
+            sd_sum = sd(r_sim)) 
+
+merging_intrapest <- inner_join(intrapest_rep,sum_intrapest) %>% 
+  mutate(r_est = r + (r_sim - r_sum)*(stdev/sd_sum)) %>% 
+  select(study, year, order, fg, lat, temp, r_est, vi) %>% 
+  as_tibble() %>% 
+  print()
+
