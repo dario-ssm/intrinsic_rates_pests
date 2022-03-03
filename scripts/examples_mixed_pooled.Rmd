@@ -240,9 +240,9 @@ bayes_mod_1 <- brm(yi|se(vi) ~ 1 + (1|Species),
 summary(bayes_mod_1)
 ```
 
-As in the example, the *between-studies* *heterogeneity **τ*** ^**2**^
-= **0.31** with a BCI of [0.21, 0.46]; the estimate (*summary effect)*
-is **0.43**, with a 95% BCI [0.28, 0.57].
+As in the example, the *between-studies* *heterogeneity **τ*** ^**2**^ =
+**0.31** with a BCI of [0.21, 0.46]; the estimate (*summary effect)* is
+**0.43**, with a 95% BCI [0.28, 0.57].
 
 #### 3.2. incorporating a covariate: meta-regression
 
@@ -465,11 +465,11 @@ modelo). Pero primero vamos a ver qué estructura de varianza tiene más
 sentido. Por un lado, asumimos que hay heteroscedasticidad, por lo que
 la varianza aumenta conforme aumenta la variable predictora
 (temperatura). Por ello usamos la estructura `varExp(~ temp)` en el
-argumento `weights`. Pero, al ser un metaanálisis, debemos ponderar
-cada estudio en función de su propia varianza muestral, de modo que
-debemos también incorporar un `varFixed(~vi)`. Para combinar las dos,
-utilizamos `varComb(varFixed(etc),varExp(etc))`. A continuación
-mostramos los outputs de todas las combinaciones teóricamente posibles.
+argumento `weights`. Pero, al ser un metaanálisis, debemos ponderar cada
+estudio en función de su propia varianza muestral, de modo que debemos
+también incorporar un `varFixed(~vi)`. Para combinar las dos, utilizamos
+`varComb(varFixed(etc),varExp(etc))`. A continuación mostramos los
+outputs de todas las combinaciones teóricamente posibles.
 
 ```{r}
 #varfixed por id (standard for meta-analysis)
@@ -543,9 +543,8 @@ kable(sum_nlme_acari$tTable)
 
 ```
 
-Funciona bien el modelo nlme. Según Wolfgang Viechtbauer, el creador
-del paquete **`metafor`**, habría que añadir un
-`(n)lmeControl(sigma = 1)` :
+Funciona bien el modelo nlme. Según Wolfgang Viechtbauer, el creador del
+paquete **`metafor`**, habría que añadir un `(n)lmeControl(sigma = 1)` :
 
 > *"First of all, it's good to see that you are well aware of the fact
 > that lme() without lmeControl(sigma=1) will lead to the estimation of
@@ -633,9 +632,9 @@ kable(sum_nlme_acari$tTable)
 
 ```
 
-Por tanto, las *between-studies variances* para los distintos
-parámetros apenas varían pero sí lo hace la *within-studies*
-variance, pues al no fijarla en 1 queda como 1.213.
+Por tanto, las *between-studies variances* para los distintos parámetros
+apenas varían pero sí lo hace la *within-studies* variance, pues al no
+fijarla en 1 queda como 1.213.
 
 La conclusión a la que llego
 

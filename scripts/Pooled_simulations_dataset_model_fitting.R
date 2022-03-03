@@ -8,7 +8,7 @@
 
 
 # 1. Load dataset & config options ----------------------------------------
-rm(list=ls())
+#rm(list=ls())
 library(tidyverse)
 library(svglite)
 library(nlstools)
@@ -157,7 +157,7 @@ traits_nlme_fit3 <- as_tibble(sum_nlme_fit_sims$tTable) %>%
          p = `p-value`) %>% 
   relocate(parameter, value, se, tau_2, AIC, BIC, log_lik, df, t, p) %>% 
   print()
-
+write_csv(traits_nlme_fit3,"traits_nlme_poooled_sim.txt")
 # ...... c) without simulations --------------------------------------------
 # ............. i) nlme() --------------------------------------------
 ## let's look for starting values
@@ -202,6 +202,7 @@ traits_nlme_fit3 <- as_tibble(sum_nlme_fit3$tTable) %>%
          p = `p-value`) %>% 
   relocate(parameter, value, se, tau_2, AIC, BIC, log_lik, df, t, p) %>% 
   print()
+write_csv(traits_nlme_fit3,"traits_nlme_poooled_raw.txt")
 
 ## without random-effects
 gnls_fit3 <- gnls(r ~ briere1(a, temp = temp, Tmin, Tmax),
@@ -285,7 +286,7 @@ order_subset <- simulated_intrapest %>%
            order == "Hemiptera") %>% 
   glimpse()
 starts_ord 
-nlme_fit_sims <- nlme(int_rate ~ briere1(a,temp = temp,Tmin,Tmax),
+nlme_fit_sims_order <- nlme(int_rate ~ briere1(a,temp = temp,Tmin,Tmax),
                       start = starts_ord,
                       fixed = a+Tmin+Tmax ~ as.factor(order), 
                       groups = ~ as.factor(study), #study level
@@ -385,6 +386,31 @@ nlme_feedguild_sim <- nlme(int_rate ~ briere1(a,temp = temp,Tmin,Tmax),
                        )
 )
 summary(nlme_feedguild_sim)
+# ............. iii) latitude --------------------------------------------
+starts_latitude <- c(starts_nls2[1],
+                     0,
+                     starts_nls2[2],
+                     0,
+                     starts_nls2[3],
+                     0)
+
+nlme_lat <- nlme(int_rate ~ briere1(a,temp = temp,Tmin,Tmax),
+                 start = list(fixed = starts_latitude),
+                 fixed = a+Tmin+Tmax ~ abs(lat), 
+                 groups = ~ as.factor(study), #study level
+                 weights = varComb(varFixed(value = ~vi), # inverse-variance weighting
+                                   varExp(form = ~ temp)), # heteroscedasticity accounted for
+                 data = simulated_intrapest, 
+                 na.action = na.exclude,
+                 control = nlmeControl(msMaxIter = 50, #recommendation by the console
+                                       maxIter =  50, #recommendation by the console
+                                       pnlsTol = 10, #to achieve convergence
+                                       sigma = 1,
+                                       msVerbose = FALSE
+                                       # to avoid within-studies variance modelling (for meta-analysis) 
+                 )
+)
+summary(nlme_lat)  #nothing is significant
 
 
 
@@ -1145,9 +1171,137 @@ lme_r_lat_temp_varExp_order <- lme(r ~ abs(lat) + temp + order,
 
 anova(lme_r_lat, lme_r_lat_varExp)
 
-w# 6. ? ----------------
+# 7. Traits plotting ----------------
+# .... a) Tmin & Tmax by order ----------------
+# first we'll need to assemble de dataset with model parameters:
+counts_order <- simulated_intrapest %>% 
+  filter(order == "Acari" |
+         order == "Lepidoptera" |
+         order == "Hemiptera") %>% 
+  group_by(order) %>% 
+  summarise(n = length(unique(study))) %>% 
+  select(n) %>% 
+  as_vector() %>% 
+  print()
+
+thermal_traits_order <- traits_acari_sim %>% 
+  bind_rows(traits_hemiptera_sim) %>% 
+  bind_rows(traits_lepidoptera_sim) %>% 
+  mutate(order = rep(c("Acari","Hemiptera","Lepidoptera"), each =3),
+         n = rep(counts_order, each = 3)) %>% 
+  filter(parameter != "a") %>% 
+  print()
+
+plot_thermal_traits_order <- ggplot(thermal_traits_order, aes(x = order, y = value))+
+  geom_point(aes(color = parameter,
+                  size = n))+
+  geom_pointrange(aes(x = order,
+                      y=value,
+                      ymin = value-se,
+                      ymax = value + se,
+                      color = parameter))+
+  theme_classic()
+plot_thermal_traits_order
+ggsave("plot_thermal_traits_order.png",
+       dpi = 300,
+       width = 20,
+       height = 15,
+       units = "cm")
+
+# .... b) Tmin ~ lat for acari ----------------
+sim_acari_lat$groups
 
 
+latvals_acari <- sim_acari %>%
+  group_by(study) %>% 
+  summarise(lat = mean(lat)) 
+weights_acari <- sim_acari %>% 
+  group_by(study) %>% 
+  summarise(weights = mean(1/vi))
+
+
+sum_eff_acari_lat <- as_tibble(sum_sim_acari_lat_sumef$tTable[,1:2]) %>%
+  t()
+colnames(sum_eff_acari_lat) <-c("a_int","a_slope",
+                                    "tmin_int","tmin_slope",
+                                    "tmax_int","tmax_slope")
+#random_sumeff_acari_lat <- VarCorr(sim_acari_lat)[1:6,2]
+#names(random_sumeff_acari_lat) <- c("random_a_int","random_a_slope",
+ #                                      "random_tmin_int","random_tmin_slope",
+  #                                     "random_tmax_int","random_tmax_slope")
+coefs_lat_acari <- coefs_acari %>%
+  mutate(lat = latvals_acari$lat,
+         weights = weights_acari$weights,
+         study = weights_acari$study) %>%
+  bind_cols(ranefs_acari) %>% 
+  print()
+
+fixeff_sum <- intervals(sim_acari_lat,which = "fixed")
+sum_effs <- tibble(estimate = fixeff_sum$fixed[,2],
+                   lower_ci = fixeff_sum$fixed[,1],
+                   upper_ci = fixeff_sum$fixed[,3],
+                   parameter = c("a_int","a_slope",
+                                 "tmin_int","tmin_slope",
+                                 "tmax_int","tmax_slope"))
+tmin_coefs_lat_acari <- coefs_lat_acari %>% 
+  select(tmin_slope, lat, weights, study, random_tmin_slope) %>% 
+  mutate(study = as_factor(study))
+  summary_tmin <- tibble(sum_effs$estimate[4],sum_effs$lower_ci[4],sum_effs$upper_ci[4],as.factor(43),0)
+colnames(summary_tmin) <- colnames(tmin_coefs_lat_acari)
+
+forest_tmin_lat_acari <- ggplot(tmin_coefs_lat_acari, aes(x = tmin_slope,
+                                                         y = study))+
+  geom_point(aes(color = as_factor(study),
+                 size = weights))+
+  geom_pointrange(aes(xmin = tmin_slope - random_tmin_slope,
+                      xmax = tmin_slope + random_tmin_slope,
+                      color = study))+
+  geom_point(data = summary_tmin, aes(x = tmin_slope, y = study),
+             color = "firebrick3",
+             size = 2)+
+  geom_pointrange(data = summary_tmin, aes(xmin = lat,
+                                           xmax = weights),
+                  color = "firebrick3",
+                  size = 1.5)+
+  labs(title = "Forest plot Acari slopes",
+       x = "Tmin ~ lat (slope)",
+       y = "Study")+
+  geom_vline(xintercept = 0,
+             color= "lightcoral",
+             linetype = "dashed")+
+  theme_cowplot()+
+  theme(legend.position = "none")
+forest_tmin_lat_acari
+ggsave("forest_tmin_lat_acari.png",
+       dpi = 300,
+       width = 20,
+       height = 15,
+       units = "cm")
+rectas_acari_lat <- sum_effs %>% 
+  t() %>% 
+  as_tibble() %>% 
+  mutate_all(as.numeric) %>% 
+colnames(rectas_acari_lat) <- sum_effs$parameter
+forest_sum_fixeff_acari_lat <- ggplot(slopes_acari_lat, aes(estimate, parameter))+
+  geom_point(aes(color = parameter), size= 5)+
+  geom_pointrange(aes(xmin = lower_ci,
+                      xmax = upper_ci,
+                      color = parameter),
+                  size = 1)+
+  labs(x = "Slope (thermal traits ~ latitude)",
+       y = "Thermal trait")+
+  theme_cowplot()+
+  scale_colour_manual(values = c("goldenrod","firebrick3","turquoise4"))+
+  geom_vline(xintercept = 0,
+             color= "lightcoral",
+             linetype = "dashed")
+  
+forest_sum_fixeff_acari_lat
+ggsave("forest_sum_fixeff_acari_lat.png",
+       dpi = 300,
+       width = 20,
+       height = 15,
+       units = "cm")
 # 7. Orange example? ----------------
 Orange
 # let's generate a random covariate such as origin

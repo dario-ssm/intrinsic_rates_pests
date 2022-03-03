@@ -24,6 +24,76 @@ thermal_traits_data_raw <- read_csv("parameters_individual_fitted.csv") %>%
              tmax = Tmax_est, tmax_se = Tmax_se, topt = Value, topt_se = Topt_se,
              start_a = starting_a, start_tmin = starting_Tmin, start_tmax = starting_Tmax )%>% 
   glimpse()
+
+# ensemble dataset complete
+ir_data_all <- read_csv("IR_data_all_clean.csv")
+authors <- ir_data_all %>% 
+  select(Authors) %>% 
+  separate(Authors,into = c("a","b"),sep = "," ) %>% 
+  select(1) %>% 
+  rename(authors = a) %>% 
+  print()
+  
+ir_data_complementary <- ir_data_all %>% 
+  bind_cols(authors) %>% 
+  select(id, authors,Year, title, DOI, vi, order, family, genus, species, feeding_guild,
+         lat, sd_median) %>% 
+  group_by(id) %>% 
+  mutate(vi = median(vi)) %>%
+  summarise_all(unique) %>% 
+  print()
+counts <- thermal_traits_data_raw %>% 
+  group_by(id) %>% 
+  summarise(n = n_distinct(topt_se)) %>% 
+  select(n) %>% 
+  as_vector()
+available_ids <- thermal_traits_data_raw %>% 
+  group_by(id) %>% 
+  summarise(n = n_distinct(topt_se)) %>% 
+  select(id) %>% 
+  as_vector()
+ir_data_complement_repeated <- ir_data_all %>% 
+  mutate(across(.x, ~rep(.x,e )))
+ir_data_forloop <- tibble(id = NULL,
+                          authors = NULL,
+                          Year = NULL,
+                          title = NULL,
+                          DOI = NULL,
+                          vi = NULL,
+                          order = NULL,
+                          family = NULL,
+                          genus = NULL,
+                          species = NULL,
+                          feeding_guild = NULL,
+                          lat = NULL,
+                          sd_median = NULL)
+for (i in 1:length(available_ids)){
+  i_th_study <- ir_data_complementary %>% filter(id == available_ids[i])
+  for (nrep in 1:counts[i]){
+    ir_data_forloop <- ir_data_forloop %>% 
+      bind_rows((i_th_study))
+  }
+}
+ir_data_forloop
+#let's check it out:
+counts_forloop <- ir_data_forloop %>% 
+ count(id) %>% 
+  mutate(counts_checking = counts)
+view(counts_forloop) #perfect!!!
+
+# so we assemble the dataset
+ir_data_complete <- thermal_traits_data_raw %>%
+  select(-id) %>% 
+  bind_cols(ir_data_forloop) %>% 
+  glimpse()
+
+
+
+
+
+
+
+
 ## apply filters 
 range(thermal_traits_data_raw$tmin)
 quantile(thermal_traits_data_raw$tmin)
@@ -39,17 +109,6 @@ thermal_traits_outliers <- thermal_traits_data_raw %>%
   count(id)
 
 # 2. Exploratory data analysis ----
-# _ _ a) Tmin ----
-summary(Tmin_est)
-hist(Tmin_est) #quite normal
-shapiro.test(Tmin_est) #normal
-# _ _ b) Tmax ----
-summary(Tmax_est)
-hist(Tmax_est)   #quite normal
-shapiro.test(Tmax_est) #normal
-# _ _ c) lon, lat ----
-summary(lat)
-hist(lat)    
 #create map along coordinates (prepared to insert in a colored background with transparent ocean)
 map <- ggplot(data = thermal_traits_data, aes(x = lon, y = lat)) +
   borders("world", colour = "transparent", fill = "white") +
@@ -59,14 +118,13 @@ map <- ggplot(data = thermal_traits_data, aes(x = lon, y = lat)) +
   
 map
 #ggsave("map_meta.png",height=15,width=25,units="cm",bg = "transparent")
-# _ _ d) Topt ----
-summary(Topt_est)
-hist(Topt_est) #quite normal
-shapiro.test(Topt_est) #normal
 
 # 3. Linear regressions ----
 # _ _ 3.1. Tmin to lat  ---- 
-Tmin_lat <- lm(Tmin_est_nls~abs(lat), data = thermal_traits_data)
+tmin <- thermal_traits_data_raw$tmin
+Tmin_lat <- lme(tmin~abs(lat),
+                random = ~1|id,
+                data = thermal_traits_data_raw)
 check_model(Tmin_lat) #quite good
 Tmin_lat_sum <- summary(Tmin_lat)
 Tmin_lat_sum
