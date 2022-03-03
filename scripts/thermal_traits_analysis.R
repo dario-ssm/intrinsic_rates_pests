@@ -10,15 +10,12 @@
 # 1. Load Dataset & explore ranges ----
 rm(list=ls())
 #library(tidyverse)
-library(dplyr)
-library(readr)
-library(purrr)
-library(stringr)
-library(ggplot2)
+library(tidyverse)
 library(ggmap)
 library(performance)
 library(cowplot)
 library(wesanderson)
+library(nlme)
 thermal_traits_data_raw <- read_csv("parameters_individual_fitted.csv") %>%
   rename(id=id, a_est = a_est, a_se = a_se, tmin = Tmin_est, tmin_se = Tmin_se,
              tmax = Tmax_est, tmax_se = Tmax_se, topt = Value, topt_se = Topt_se,
@@ -86,81 +83,94 @@ ir_data_complete <- thermal_traits_data_raw %>%
   select(-id) %>% 
   bind_cols(ir_data_forloop) %>% 
   glimpse()
-
-
-
-
-
-
-
-
-## apply filters 
-range(thermal_traits_data_raw$tmin)
-quantile(thermal_traits_data_raw$tmin)
-
-range(thermal_traits_data_raw$tmax)
-quantile(thermal_traits_data_raw$tmax)
-
-range(thermal_traits_data_raw$topt)
-quantile(thermal_traits_data_raw$topt)
-
-thermal_traits_outliers <- thermal_traits_data_raw %>% 
-  filter(tmax >=60) %>% 
-  count(id)
+#write_csv(ir_data_complete, "parameters_individual_fit_complemented.csv")
 
 # 2. Exploratory data analysis ----
-#create map along coordinates (prepared to insert in a colored background with transparent ocean)
-map <- ggplot(data = thermal_traits_data, aes(x = lon, y = lat)) +
-  borders("world", colour = "transparent", fill = "white") +
-  geom_point(aes(colour = order), alpha = 0.35, size = 3)+theme_classic()+
-  theme_void()+
-  theme(legend.position = "bottom",panel.background = element_rect(fill="transparent",color=NA))
+## apply filters 
+range(thermal_traits_data_raw$tmin)
+q_tmin <- quantile(thermal_traits_data_raw$tmin, probs = .05)
+q_tmin_se <-quantile(thermal_traits_data_raw$tmin_se, probs = .95)
+range(thermal_traits_data_raw$tmax)
+q_tmax <- quantile(thermal_traits_data_raw$tmax,probs = .95)
+q_tmax_se <- quantile(thermal_traits_data_raw$tmax_se,probs = .95)
+range(thermal_traits_data_raw$topt)
+q_topt <- quantile(thermal_traits_data_raw$topt,probs = .95)
+q_topt_se <- quantile(thermal_traits_data_raw$topt_se,probs = .95)
+
+ir_dataset_clean_estimates <- ir_data_complete %>% 
+  filter(tmax < q_tmax &
+         tmin > q_tmin &
+         topt < q_topt) %>%
+  glimpse()
+
+ir_dataset_clean_se <- ir_data_complete %>% 
+  filter(tmax_se < q_tmax_se &
+         tmin_se < q_tmin_se &
+         topt_se < q_topt_se) %>%
+  glimpse()
   
-map
+#create map along coordinates (prepared to insert in a colored background with transparent ocean)
+# map <- ggplot(data = thermal_traits_data, aes(x = lon, y = lat)) +
+#   borders("world", colour = "transparent", fill = "white") +
+#   geom_point(aes(colour = order), alpha = 0.35, size = 3)+theme_classic()+
+#   theme_void()+
+#   theme(legend.position = "bottom",panel.background = element_rect(fill="transparent",color=NA))
+#   
+# map
 #ggsave("map_meta.png",height=15,width=25,units="cm",bg = "transparent")
 
 # 3. Linear regressions ----
 # _ _ 3.1. Tmin to lat  ---- 
-tmin <- thermal_traits_data_raw$tmin
-Tmin_lat <- lme(tmin~abs(lat),
-                random = ~1|id,
-                data = thermal_traits_data_raw)
-check_model(Tmin_lat) #quite good
-Tmin_lat_sum <- summary(Tmin_lat)
-Tmin_lat_sum
+tmin <- ir_dataset_clean_se$tmin
+tmin_lat <- lm(tmin~abs(lat),
+               data = ir_dataset_clean_se)
+tmin_lat_sum <- summary(tmin_lat)
+check_model(tmin_lat) #quite good
 
 # _ _ 3.2. Tmax to lat  ---- 
-Tmax_lat <- lm(Tmax_est_nls~abs(lat), data = thermal_traits_data)
-check_model(Tmax_lat) #quite good
-Tmax_lat_sum <- summary(Tmax_lat)
-Tmax_lat_sum
+tmax <- ir_dataset_clean_se$tmax
+tmax_lat <- lm(tmax~abs(lat),
+               data = ir_dataset_clean_se)
+tmax_lat_sum <- summary(tmax_lat)
+check_model(tmax_lat) 
 
 # _ _ 3.3. Topt to lat  ----
-Topt_lat <- lm(Topt_est~abs(lat), data = thermal_traits_data)
-check_model(Topt_lat)
-Topt_lat_sum <- summary(Topt_lat)
-Topt_lat_sum
+topt <- ir_dataset_clean_se$topt
+topt_lat <- lm(topt~abs(lat),
+               data = ir_dataset_clean_se)
+topt_lat_sum <- summary(topt_lat)
+check_model(topt_lat) 
 
 # _ _ 3.4. Tmax to Tmin  ----
-Tmax_Tmin <- lm(Tmax_est_nls~Tmin_est_nls, data = thermal_traits_data)
-check_model(Tmax_Tmin)
-Tmax_Tmin_sum <- summary(Tmax_Tmin)
-Tmax_Tmin_sum
+tmax_tmin <- lm(tmax~tmin, data = ir_dataset_clean_se)
+tmax_tmin_sum <- summary(tmax_tmin)
+check_model(tmax_tmin)
+tmax_tmin_sum
+# _ _ 3.5. a to lat  ----
+a <- ir_dataset_clean_se$a_est
+a_lat <- lm(a~abs(lat),
+            data = ir_dataset_clean_se)
+a_lat_sum <- summary(a_lat)
+check_model(a_lat)
+
 
 # 4. Plots  ----
 #_ _ 4.1 Thermal traits across latitude  ----
-
-Tmin_to_lat_plot <- ggplot(thermal_traits_data,aes(abs(lat),Tmin_est_nls))+
-  geom_point(alpha=0.5,color="skyblue4")+
+Tmin_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmin))+
+  geom_point(alpha=0.1,
+             color="skyblue4",
+             position = position_jitter(width = 3))+
   geom_smooth(method="lm",color="skyblue4",fill="skyblue2")+
   labs(title= "Tmin ~ latitude",
        x= "latitude",
        y= "Tmin")+
   theme_classic()
-Tmin_to_lat_plot
+Tmin_to_lat_plot #should we remove those whose start = estimate?
 
-Tmax_to_lat_plot <- ggplot(thermal_traits_data,aes(abs(lat),Tmax_est_nls))+
-  geom_point(alpha=0.5,color="red3")+
+Tmax_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmax))+
+  geom_point(alpha=0.1,
+             color="red4",
+             position = position_jitter(width = 3))+
   geom_smooth(method="lm",color="red4",fill="red3")+
   labs(title= "Tmax ~ latitude",
        x= "latitude",
@@ -168,8 +178,10 @@ Tmax_to_lat_plot <- ggplot(thermal_traits_data,aes(abs(lat),Tmax_est_nls))+
   theme_classic()
 Tmax_to_lat_plot
 
-Topt_to_lat_plot <- ggplot(thermal_traits_data,aes(abs(lat),Topt_est))+
-  geom_point(alpha=0.5,color="mediumorchid4")+
+Topt_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),topt))+
+  geom_point(alpha=0.1,
+             color="mediumorchid4",
+             position = position_jitter(width = 3))+ 
   geom_smooth(method="lm",color="mediumorchid4",fill="mediumorchid3")+
   labs(title= "Topt ~ latitude",
        x= "latitude",
@@ -182,41 +194,34 @@ lms_plot_grid <- plot_grid(Tmin_to_lat_plot,Topt_to_lat_plot,Tmax_to_lat_plot,
 
 lms_plot_grid
 
-all_loess_combined <- ggplot(thermal_traits_data)+
-  geom_point(aes(x=abs(lat),y=Tmin_est_nls),color="skyblue4",alpha=0.5)+
-  geom_smooth(aes(x=abs(lat),y=Tmin_est_nls),color="skyblue4",fill="skyblue2")+
-  geom_point(aes(x=abs(lat),y=Tmax_est_nls),color="red4",alpha=0.5)+
-  geom_smooth(aes(x=abs(lat),y=Tmax_est_nls),color="red4",fill="red3")+
-  geom_point(aes(x=abs(lat),y=Topt_est),color="mediumorchid4",alpha=0.5)+
-  geom_smooth(aes(x=abs(lat),y=Topt_est),color="mediumorchid4",fill="mediumorchid3")+
-  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (?C)")+
+all_loess_combined <- ggplot(ir_dataset_clean_se)+
+  geom_point(aes(x=abs(lat),y=tmin),color="skyblue4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=tmin),color="skyblue4",fill="skyblue2")+
+  geom_point(aes(x=abs(lat),y=tmax),color="red4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=tmax),color="red4",fill="red3")+
+  geom_point(aes(x=abs(lat),y=topt),color="mediumorchid4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=topt),color="mediumorchid4",fill="mediumorchid3")+
+  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (ºC)")+
   theme_classic()
 all_loess_combined  
 
-all_lms_combined <- ggplot(thermal_traits_data)+
-  geom_point(aes(x=abs(lat),y=Tmin_est_nls),color="skyblue4",alpha=0.5)+
-  geom_smooth(aes(x=abs(lat),y=Tmin_est_nls),
-              method="lm",
-              color="skyblue4",
-              fill="skyblue2")+
-  geom_point(aes(x=abs(lat),y=Tmax_est_nls),color="red4",alpha=0.5)+
-  geom_smooth(aes(x=abs(lat),y=Tmax_est_nls),
-              method="lm",
-              color="red4",
-              fill="red3")+
-  geom_point(aes(x=abs(lat),y=Topt_est),color="mediumorchid4",alpha=0.5)+
-  geom_smooth(aes(x=abs(lat),y=Topt_est),
-              method="lm",
-              color="mediumorchid4",
-              fill="mediumorchid3")+
-  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (?C)")+
+all_lms_combined <- ggplot(ir_dataset_clean_se)+
+  geom_point(aes(x=abs(lat),y=tmin),color="skyblue4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=tmin),color="skyblue4",fill="skyblue2", method = "lm")+
+  geom_point(aes(x=abs(lat),y=tmax),color="red4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=tmax),color="red4",fill="red3", method = "lm")+
+  geom_point(aes(x=abs(lat),y=topt),color="mediumorchid4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=topt),color="mediumorchid4",fill="mediumorchid3", method = "lm")+
+  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (ºC)")+
   theme_classic()
+all_lms_combined  
+
 
 all_lms_combined
 
 #by order
-Tmin_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Tmin_est_nls))+
-  geom_point(alpha=0.5,aes(color=order))+
+Tmin_to_lat_plot_order <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmin))+
+  geom_point(aes(x=abs(lat),y=tmin, color = order),alpha=0.1, position = position_jitter(width = 3))+
   geom_smooth(method="lm",aes(color=order,fill=order))+
   facet_wrap(.~order)+
   labs(title= "Tmin ~ latitude",
@@ -226,8 +231,8 @@ Tmin_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Tmin_est_nls))
   theme(legend.position = "none")
 Tmin_to_lat_plot_order
 
-Tmax_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Tmax_est_nls))+
-  geom_point(alpha=0.5,aes(color=order))+
+Tmax_to_lat_plot_order <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmax))+
+  geom_point(aes(color=order),alpha=0.1, position = position_jitter(width = 3))+
   geom_smooth(method="lm",aes(color=order,fill=order))+
   facet_wrap(.~order)+
   labs(title= "Tmax ~ latitude",
@@ -237,8 +242,8 @@ Tmax_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Tmax_est_nls))
   theme(legend.position = "none")
 Tmax_to_lat_plot_order
 
-Topt_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Topt_est))+
-  geom_point(alpha=0.5,aes(color=order))+
+Topt_to_lat_plot_order <- ggplot(ir_dataset_clean_se,aes(abs(lat),topt))+
+  geom_point(aes(color=order),alpha=0.1, position = position_jitter(width = 3))+
   geom_smooth(method="lm",aes(color=order,fill=order))+
   facet_wrap(.~order)+
   labs(title= "Topt ~ latitude",
@@ -249,58 +254,46 @@ Topt_to_lat_plot_order <- ggplot(thermal_traits_data,aes(abs(lat),Topt_est))+
 Topt_to_lat_plot_order
 #_ _ 4.2 Thermal traits across taxa  ----
 #prepare dataframe
-counts <- thermal_traits_data %>%
+counts <- ir_dataset_clean_se %>%
   count(order)%>%
   select(n)%>%
   as_vector()
 
-acari <- thermal_traits_data %>%
-  filter(order == "Acari>Prostigmata" | 
-           order == "Acari>Trombidiformes")%>%
-  mutate(order = "Acari")%>%
-  select(Tmin_est_nls,Tmax_est_nls,Topt_est,Tmin_se_nls,Tmax_se_nls,Topt_se_delta,
-         order)
-
-mean_by_order <- thermal_traits_data %>%
-  select(Tmin_est_nls,Tmax_est_nls,Topt_est,Tmin_se_nls,Tmax_se_nls,Topt_se_delta,
-         order) %>%
-  filter(order != "Acari>Prostigmata" &
-           order != "Acari>Trombidiformes")%>%
-  bind_rows(acari)%>%
+mean_by_order <- ir_dataset_clean_se %>%
+  select(tmin,tmax,topt,tmin_se,tmax_se,topt_se,order) %>% 
   group_by(order) %>%
-  summarise(across(c(Tmin_est_nls,Tmax_est_nls,
-                     Topt_est,Tmin_se_nls,Tmax_se_nls,
-                     Topt_se_delta), ~ mean(.x, na.rm = TRUE)))
+  summarise(across(c(tmin,tmax,topt,tmin_se,tmax_se,topt_se),
+                   ~ mean(.x, na.rm = TRUE)))
 
 ## first we need subsets for each trait to plot pointrange correctly
 #Tmax
-lower_tmax <- tapply(thermal_traits_data$Tmax_est_nls,
-                    thermal_traits_data$order, min)
-upper_tmax <- tapply(thermal_traits_data$Tmax_est_nls,
-                     thermal_traits_data$order, max)
+lower_tmax <- tapply(ir_dataset_clean_se$tmax,
+                     ir_dataset_clean_se$order, min)
+upper_tmax <- tapply(ir_dataset_clean_se$tmax,
+                     ir_dataset_clean_se$order, max)
 tmax_ranges <- tibble(order = mean_by_order$order,
-                      Tmax =mean_by_order$Tmax_est_nls,
+                      Tmax =mean_by_order$tmax,
                       n=counts,
                       lower=lower_tmax,
                       upper=upper_tmax)
 
 #Tmin
-lower_tmin <- tapply(thermal_traits_data$Tmin_est_nls,
-                     thermal_traits_data$order, min)
-upper_tmin <- tapply(thermal_traits_data$Tmin_est_nls,
-                     thermal_traits_data$order, max)
+lower_tmin <- tapply(ir_dataset_clean_se$tmin,
+                     ir_dataset_clean_se$order, min)
+upper_tmin <- tapply(ir_dataset_clean_se$tmin,
+                     ir_dataset_clean_se$order, max)
 tmin_ranges <- tibble(order = mean_by_order$order,
-                      Tmin =mean_by_order$Tmin_est_nls,
+                      Tmin =mean_by_order$tmin,
                       n=counts,
                       lower=lower_tmin,
                       upper=upper_tmin)
 #Topt
-lower_topt <- tapply(thermal_traits_data$Topt_est,
-                     thermal_traits_data$order, min)
-upper_topt <- tapply(thermal_traits_data$Topt_est,
-                     thermal_traits_data$order, max)
+lower_topt <- tapply(ir_dataset_clean_se$topt,
+                     ir_dataset_clean_se$order, min)
+upper_topt <- tapply(ir_dataset_clean_se$topt,
+                     ir_dataset_clean_se$order, max)
 topt_ranges <- tibble(order = mean_by_order$order,
-                      Topt =mean_by_order$Topt_est,
+                      Topt =mean_by_order$topt,
                       n=counts,
                       lower=lower_topt,
                       upper=upper_topt)
@@ -357,25 +350,25 @@ boxplot_traits_ord <- ggplot(data=thermal_traits_data, aes(x=order))+
 boxplot_traits_ord
 
 #pointranges with mean se
-tmax_se_avg <- tapply(thermal_traits_data$Tmax_se_nls,
-                      thermal_traits_data$order,
+tmax_se_avg <- tapply(ir_dataset_clean_se$tmax_se,
+                      ir_dataset_clean_se$order,
                       mean)
 tmax_se_pointrange <- tibble(order = mean_by_order$order,
-                        Tmax =mean_by_order$Tmax_est_nls,
+                        Tmax =mean_by_order$tmax,
                         n=counts,
                         tmax_se_avg)
-tmin_se_avg <- tapply(thermal_traits_data$Tmin_se_nls,
-                      thermal_traits_data$order,
+tmin_se_avg <- tapply(ir_dataset_clean_se$tmin_se,
+                      ir_dataset_clean_se$order,
                       mean)
 tmin_se_pointrange <- tibble(order = mean_by_order$order,
-                             Tmin =mean_by_order$Tmin_est_nls,
+                             Tmin =mean_by_order$tmin,
                              n=counts,
                              tmin_se_avg)
-topt_se_avg <- tapply(thermal_traits_data$Topt_se_delta,
-                      thermal_traits_data$order,
+topt_se_avg <- tapply(ir_dataset_clean_se$topt_se,
+                      ir_dataset_clean_se$order,
                       mean)
 topt_se_pointrange <- tibble(order = mean_by_order$order,
-                             Topt =mean_by_order$Topt_est,
+                             Topt =mean_by_order$topt,
                              n=counts,
                              topt_se_avg)
 
@@ -434,3 +427,131 @@ tmax_anova_order <- lm(Tmax_est_nls~order,data=tmax_4anova)
 summary(tmax_anova_order) #no differences
 tmax_anova_guild <- lm(Tmax_est_nls~feeding_guild,data=tmax_4anova)
 summary(tmax_anova_guild) #only chewers are different from the others, with lower tmax
+
+# 5. Meta-analysis models ----
+# _ _ a) tmax  ---- 
+# _ _ _ _i) random intercept  ---- 
+
+tmax_intercept <- lme(tmax ~ 1,
+                      random = ~1|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmax_intercept)
+# _ _ _ _ii) ~ lat  ---- 
+## random slope & intercept
+tmax_lat_slope <- lme(tmax ~ abs(lat),
+                      random = ~abs(lat)|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmax_lat_slope)
+# _ _ _ _iii) ~ order  ---- 
+## random slope & intercept
+tmax_order <- lme(tmax ~ as_factor(order),
+                  random = ~ as_factor(order)|id,
+                  weights = varFixed(~vi),
+                  data = ir_dataset_clean_se,
+                  control = lmeControl(sigma = 1))
+summary(tmax_order)
+# _ _ _ _iv) ~ feeding guild  ---- 
+## random slope & intercept
+tmax_feeding_guild <- lme(tmax ~ as_factor(feeding_guild),
+                          random = ~ as_factor(feeding_guild)|id,
+                          weights = varFixed(~vi),
+                          data = ir_dataset_clean_se,
+                          control = lmeControl(sigma = 1))
+summary(tmax_feeding_guild)
+# _ _ _ _v) ~ year  ---- 
+## random slope & intercept
+tmax_year <- lme(tmax ~ Year,
+                 random = ~ Year|id,
+                 weights = varFixed(~vi),
+                 data = ir_dataset_clean_se,
+                 control = lmeControl(sigma = 1))
+summary(tmax_year)
+# _ _ b) tmin  ---- 
+# _ _ _ _i) random intercept  ---- 
+
+tmin_intercept <- lme(tmin ~ 1,
+                      random = ~1|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmin_intercept)
+# _ _ _ _ii) ~ lat  ---- 
+## random slope & intercept
+tmin_lat_slope <- lme(tmin ~ abs(lat),
+                      random = ~abs(lat)|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmin_lat_slope)
+# _ _ _ _iii) ~ order  ---- 
+## random slope & intercept
+tmin_order <- lme(tmin ~ as_factor(order),
+                  random = ~ as_factor(order)|id,
+                  weights = varFixed(~vi),
+                  data = ir_dataset_clean_se,
+                  control = lmeControl(sigma = 1))
+summary(tmin_order)
+# _ _ _ _iv) ~ feeding guild  ---- 
+## random slope & intercept
+tmin_feeding_guild <- lme(tmin ~ as_factor(feeding_guild),
+                          random = ~ as_factor(feeding_guild)|id,
+                          weights = varFixed(~vi),
+                          data = ir_dataset_clean_se,
+                          control = lmeControl(sigma = 1))
+summary(tmin_feeding_guild)
+# _ _ _ _v) ~ year  ---- 
+## random slope & intercept
+tmin_year <- lme(tmin ~ Year,
+                 random = ~ Year|id,
+                 weights = varFixed(~vi),
+                 data = ir_dataset_clean_se,
+                 control = lmeControl(sigma = 1))
+summary(tmin_year)
+
+
+# _ _ c) topt  ---- 
+# _ _ _ _i) random intercept  ---- 
+
+topt_intercept <- lme(topt ~ 1,
+                      random = ~1|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(topt_intercept)
+# _ _ _ _ii) ~ lat  ---- 
+## random slope & intercept
+topt_lat_slope <- lme(topt ~ abs(lat),
+                      random = ~abs(lat)|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(topt_lat_slope)
+# _ _ _ _iii) ~ order  ---- 
+## random slope & intercept
+topt_order <- lme(topt ~ as_factor(order),
+                  random = ~ as_factor(order)|id,
+                  weights = varFixed(~vi),
+                  data = ir_dataset_clean_se,
+                  control = lmeControl(sigma = 1))
+summary(topt_order)
+# _ _ _ _iv) ~ feeding guild  ---- 
+## random slope & intercept
+topt_feeding_guild <- lme(topt ~ as_factor(feeding_guild),
+                          random = ~ as_factor(feeding_guild)|id,
+                          weights = varFixed(~vi),
+                          data = ir_dataset_clean_se,
+                          control = lmeControl(sigma = 1))
+summary(topt_feeding_guild)
+# _ _ _ _v) ~ year  ---- 
+## random slope & intercept
+topt_year <- lme(topt ~ Year,
+                 random = ~ Year|id,
+                 weights = varFixed(~vi),
+                 data = ir_dataset_clean_se,
+                 control = lmeControl(sigma = 1))
+summary(topt_year)
+
