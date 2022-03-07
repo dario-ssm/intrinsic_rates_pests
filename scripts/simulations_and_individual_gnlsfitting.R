@@ -371,7 +371,7 @@ tryCatch({
                                 start = studies_starts_df[position,],
                                 na.action = na.exclude,
                                 weights = varExp(form = ~temp),
-                                control = gnlsControl(nlsTol = 1e-01))},
+                                control = gnlsControl(nlsTol = 1e-07))},
   error = function(e){skip_to_next <<- TRUE})
 if(skip_to_next | is.null(fitted_br1_study_gnls)){ next }
 sum_br1_study <- summary(fitted_br1_study_gnls)
