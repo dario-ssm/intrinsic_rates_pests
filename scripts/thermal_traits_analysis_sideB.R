@@ -341,7 +341,7 @@ CombinedAcross_order_traits <- ggplot()+
   labs(title = "Thermal traits across taxa",
        subtitle= "Circles' size are proportional to sample size",
        x = "Order",
-       y = "Thermal traits (?C)")+
+       y = "Thermal traits (ºC)")+
   theme_cowplot()+
   theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
   geom_text(data=tmin_ranges,aes(x=order,
@@ -353,18 +353,18 @@ CombinedAcross_order_traits <- ggplot()+
   theme(legend.position = "none")
 CombinedAcross_order_traits
 
-ggsave("thermal_traits_acrossTaxa.png",dpi=300,
+ggsave("thermal_traits_acrossTaxa_sideB.png",dpi=300,
        width = 20,height = 20,units="cm")
 
 # boxplots
-boxplot_traits_ord <- ggplot(data=thermal_traits_data, aes(x=order))+
-  geom_boxplot(aes(y=Tmin_est_nls),
+boxplot_traits_ord <- ggplot(data=ir_dataset_clean_se, aes(x=order))+
+  geom_boxplot(aes(y=tmin),
                fill= "turquoise4")+
-  geom_boxplot(aes(y=Tmax_est_nls),
+  geom_boxplot(aes(y=tmax),
                fill="indianred3")+
   labs(title = "Thermal traits across taxa",
        x = "Order",
-       y = "Thermal traits (?C)")+
+       y = "Thermal traits (ºC)")+
   theme_cowplot()+
   theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
   theme(legend.position = "none")
@@ -434,21 +434,6 @@ Circles' size are proportional to sample size",
 traits_across_orders_se
 ggsave("traits_across_orders_se.png", dpi = 300,
        width = 20,height = 20,units="cm")
-
-## ANOVAs ##
-tmin_4anova <- thermal_traits_data %>%
-  select(order,feeding_guild,Tmin_est_nls,Tmin_se_nls)
-tmin_anova_order <- lm(Tmin_est_nls~order,data=tmin_4anova)
-summary(tmin_anova_order) #no differences
-tmin_anova_guild <- lm(Tmin_est_nls~feeding_guild,data=tmin_4anova)
-summary(tmin_anova_guild) #no differences
-
-tmax_4anova <- thermal_traits_data %>%
-  select(order,feeding_guild,Tmax_est_nls,Tmax_se_nls)
-tmax_anova_order <- lm(Tmax_est_nls~order,data=tmax_4anova)
-summary(tmax_anova_order) #no differences
-tmax_anova_guild <- lm(Tmax_est_nls~feeding_guild,data=tmax_4anova)
-summary(tmax_anova_guild) #only chewers are different from the others, with lower tmax
 
 # 5. Meta-analysis models ----
 # _ _ a) tmax  ---- 
