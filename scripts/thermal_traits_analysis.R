@@ -3,6 +3,8 @@
 #     Title: trait inferences
 #     Aim: explore trait trends after model fitting from INTRAPEST database
 #     Date: October 2021
+#
+# Side A (from Dimitropoulo's method)
 #_________________________ ####
 
 
@@ -16,14 +18,14 @@ library(performance)
 library(cowplot)
 library(wesanderson)
 library(nlme)
-thermal_traits_data_raw <- read_csv("parameters_individual_fitted.csv") %>%
-  rename(id=id, a_est = a_est, a_se = a_se, tmin = Tmin_est, tmin_se = Tmin_se,
+thermal_traits_data_raw <- read_csv("parameters_individual_simdataset_12.csv") %>% # or parameters_individual_fitted.csv (no dimitropoulou's way)
+  rename(id=study, a_est = a_est, a_se = a_se, tmin = Tmin_est, tmin_se = Tmin_se,
              tmax = Tmax_est, tmax_se = Tmax_se, topt = Value, topt_se = Topt_se,
-             start_a = starting_a, start_tmin = starting_Tmin, start_tmax = starting_Tmax )%>% 
+             start_a = a, start_tmin = Tmin, start_tmax = Tmax )%>% 
   glimpse()
 
 # ensemble dataset complete
-ir_data_all <- read_csv("IR_data_all_clean.csv")
+ir_data_all <- read_csv("C:/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_data_all_clean.csv")
 authors <- ir_data_all %>% 
   select(Authors) %>% 
   separate(Authors,into = c("a","b"),sep = "," ) %>% 
@@ -49,8 +51,7 @@ available_ids <- thermal_traits_data_raw %>%
   summarise(n = n_distinct(topt_se)) %>% 
   select(id) %>% 
   as_vector()
-ir_data_complement_repeated <- ir_data_all %>% 
-  mutate(across(.x, ~rep(.x,e )))
+
 ir_data_forloop <- tibble(id = NULL,
                           authors = NULL,
                           Year = NULL,
@@ -88,7 +89,7 @@ ir_data_complete <- thermal_traits_data_raw %>%
 # 2. Exploratory data analysis ----
 ## apply filters 
 range(thermal_traits_data_raw$tmin)
-q_tmin <- quantile(thermal_traits_data_raw$tmin, probs = .05)
+q_tmin <- quantile(thermal_traits_data_raw$tmin, probs = 0.05)
 q_tmin_se <-quantile(thermal_traits_data_raw$tmin_se, probs = .95)
 range(thermal_traits_data_raw$tmax)
 q_tmax <- quantile(thermal_traits_data_raw$tmax,probs = .95)
@@ -108,6 +109,12 @@ ir_dataset_clean_se <- ir_data_complete %>%
          tmin_se < q_tmin_se &
          topt_se < q_topt_se) %>%
   glimpse()
+
+ir_dataset_clean_se_order <- ir_dataset_clean_se %>% 
+  filter(order == "Acari" |
+         order == "Hemiptera" |
+         order == "Lepidoptera") %>%
+  glimpse()
   
 #create map along coordinates (prepared to insert in a colored background with transparent ocean)
 # map <- ggplot(data = thermal_traits_data, aes(x = lon, y = lat)) +
@@ -121,41 +128,42 @@ ir_dataset_clean_se <- ir_data_complete %>%
 
 # 3. Linear regressions ----
 # _ _ 3.1. Tmin to lat  ---- 
-tmin <- ir_dataset_clean_se$tmin
+tmin <- ir_dataset_clean_estimates$tmin
 tmin_lat <- lm(tmin~abs(lat),
-               data = ir_dataset_clean_se)
+               data = ir_dataset_clean_estimates)
 tmin_lat_sum <- summary(tmin_lat)
-check_model(tmin_lat) #quite good
+performance::check_model(tmin_lat) #quite good
 
 # _ _ 3.2. Tmax to lat  ---- 
-tmax <- ir_dataset_clean_se$tmax
+tmax <- ir_dataset_clean_estimates$tmax
 tmax_lat <- lm(tmax~abs(lat),
-               data = ir_dataset_clean_se)
+               data = ir_dataset_clean_estimates)
 tmax_lat_sum <- summary(tmax_lat)
-check_model(tmax_lat) 
+performance::check_model(tmax_lat) 
 
 # _ _ 3.3. Topt to lat  ----
-topt <- ir_dataset_clean_se$topt
+topt <- ir_dataset_clean_estimates$topt
 topt_lat <- lm(topt~abs(lat),
-               data = ir_dataset_clean_se)
+               data = ir_dataset_clean_estimates)
 topt_lat_sum <- summary(topt_lat)
-check_model(topt_lat) 
+performance::check_model(topt_lat) 
 
 # _ _ 3.4. Tmax to Tmin  ----
-tmax_tmin <- lm(tmax~tmin, data = ir_dataset_clean_se)
+tmax_tmin <- lm(tmax~tmin, data = ir_dataset_clean_estimates)
 tmax_tmin_sum <- summary(tmax_tmin)
 check_model(tmax_tmin)
 tmax_tmin_sum
 # _ _ 3.5. a to lat  ----
-a <- ir_dataset_clean_se$a_est
+a <- ir_dataset_clean_estimates$a_est
 a_lat <- lm(a~abs(lat),
-            data = ir_dataset_clean_se)
+            data = ir_dataset_clean_estimates)
 a_lat_sum <- summary(a_lat)
-check_model(a_lat)
+performance::check_model(a_lat)
 
 
 # 4. Plots  ----
 #_ _ 4.1 Thermal traits across latitude  ----
+## tmin
 Tmin_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmin))+
   geom_point(alpha=0.1,
              color="skyblue4",
@@ -167,6 +175,19 @@ Tmin_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmin))+
   theme_classic()
 Tmin_to_lat_plot #should we remove those whose start = estimate?
 
+tmin_to_lat_order_plot <- ggplot(ir_dataset_clean_se_order,aes(abs(lat),tmin))+
+  geom_point(alpha=0.1,
+             color="skyblue4",
+             position = position_jitter(width = 3))+
+  geom_smooth(method="lm",color="skyblue4",fill="skyblue2")+
+  labs(title= "Tmin ~ latitude",
+       x= "latitude",
+       y= "Tmin")+
+  facet_wrap(.~order)+
+  theme_light()
+tmin_to_lat_order_plot
+
+## tmax
 Tmax_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmax))+
   geom_point(alpha=0.1,
              color="red4",
@@ -177,7 +198,19 @@ Tmax_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmax))+
        y= "Tmax")+
   theme_classic()
 Tmax_to_lat_plot
+tmax_to_lat_order_plot <- ggplot(ir_dataset_clean_se_order,aes(abs(lat),tmax))+
+  geom_point(alpha=0.1,
+             color="red4",
+             position = position_jitter(width = 3))+
+  geom_smooth(method="lm",color="red4",fill="red3")+
+  labs(title= "Tmax ~ latitude",
+       x= "latitude",
+       y= "Tmax")+
+  facet_wrap(.~order)+
+  theme_light()
+tmax_to_lat_order_plot
 
+## topt
 Topt_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),topt))+
   geom_point(alpha=0.1,
              color="mediumorchid4",
@@ -188,11 +221,26 @@ Topt_to_lat_plot <- ggplot(ir_dataset_clean_se,aes(abs(lat),topt))+
        y= "Topt")+
   theme_classic()
 Topt_to_lat_plot
+topt_to_lat_order_plot <- ggplot(ir_dataset_clean_se_order,aes(abs(lat),topt))+
+  geom_point(alpha=0.1,
+             color="mediumorchid4",
+             position = position_jitter(width = 3))+
+  geom_smooth(method="lm",color="mediumorchid4",fill="mediumorchid3")+
+  labs(title= "Topt ~ latitude",
+       x= "latitude",
+       y= "Topt")+
+  facet_wrap(.~order)+
+  theme_light()
+topt_to_lat_order_plot
+
+
+
 
 lms_plot_grid <- plot_grid(Tmin_to_lat_plot,Topt_to_lat_plot,Tmax_to_lat_plot,
                             nrow = 1,labels = c("A","B","C"))
 
 lms_plot_grid
+
 
 all_loess_combined <- ggplot(ir_dataset_clean_se)+
   geom_point(aes(x=abs(lat),y=tmin),color="skyblue4",alpha=0.1, position = position_jitter(width = 3))+
@@ -219,39 +267,7 @@ all_lms_combined
 
 all_lms_combined
 
-#by order
-Tmin_to_lat_plot_order <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmin))+
-  geom_point(aes(x=abs(lat),y=tmin, color = order),alpha=0.1, position = position_jitter(width = 3))+
-  geom_smooth(method="lm",aes(color=order,fill=order))+
-  facet_wrap(.~order)+
-  labs(title= "Tmin ~ latitude",
-       x= "latitude",
-       y= "Tmin")+
-  theme_light()+
-  theme(legend.position = "none")
-Tmin_to_lat_plot_order
 
-Tmax_to_lat_plot_order <- ggplot(ir_dataset_clean_se,aes(abs(lat),tmax))+
-  geom_point(aes(color=order),alpha=0.1, position = position_jitter(width = 3))+
-  geom_smooth(method="lm",aes(color=order,fill=order))+
-  facet_wrap(.~order)+
-  labs(title= "Tmax ~ latitude",
-       x= "latitude",
-       y= "Tmax")+
-  theme_light()+
-  theme(legend.position = "none")
-Tmax_to_lat_plot_order
-
-Topt_to_lat_plot_order <- ggplot(ir_dataset_clean_se,aes(abs(lat),topt))+
-  geom_point(aes(color=order),alpha=0.1, position = position_jitter(width = 3))+
-  geom_smooth(method="lm",aes(color=order,fill=order))+
-  facet_wrap(.~order)+
-  labs(title= "Topt ~ latitude",
-       x= "latitude",
-       y= "Topt")+
-  theme_light()+
-  theme(legend.position = "none")
-Topt_to_lat_plot_order
 #_ _ 4.2 Thermal traits across taxa  ----
 #prepare dataframe
 counts <- ir_dataset_clean_se %>%
@@ -470,6 +486,7 @@ tmax_year <- lme(tmax ~ Year,
                  data = ir_dataset_clean_se,
                  control = lmeControl(sigma = 1))
 summary(tmax_year)
+performance::check_model(tmax_year)
 # _ _ b) tmin  ---- 
 # _ _ _ _i) random intercept  ---- 
 
@@ -479,12 +496,14 @@ tmin_intercept <- lme(tmin ~ 1,
                       data = ir_dataset_clean_se,
                       control = lmeControl(sigma = 1))
 summary(tmin_intercept)
+performance::check_model(tmin_intercept)
+
 # _ _ _ _ii) ~ lat  ---- 
 ## random slope & intercept
 tmin_lat_slope <- lme(tmin ~ abs(lat),
                       random = ~abs(lat)|id,
                       weights = varFixed(~vi),
-                      data = ir_dataset_clean_se,
+                      data = ir_dataset_clean_estimates,
                       control = lmeControl(sigma = 1))
 summary(tmin_lat_slope)
 # _ _ _ _iii) ~ order  ---- 
@@ -492,7 +511,7 @@ summary(tmin_lat_slope)
 tmin_order <- lme(tmin ~ as_factor(order),
                   random = ~ as_factor(order)|id,
                   weights = varFixed(~vi),
-                  data = ir_dataset_clean_se,
+                  data = ir_dataset_clean_estimates,
                   control = lmeControl(sigma = 1))
 summary(tmin_order)
 # _ _ _ _iv) ~ feeding guild  ---- 
@@ -519,7 +538,7 @@ summary(tmin_year)
 topt_intercept <- lme(topt ~ 1,
                       random = ~1|id,
                       weights = varFixed(~vi),
-                      data = ir_dataset_clean_se,
+                      data = ir_dataset_clean_estimates,
                       control = lmeControl(sigma = 1))
 summary(topt_intercept)
 # _ _ _ _ii) ~ lat  ---- 
@@ -533,7 +552,7 @@ summary(topt_lat_slope)
 # _ _ _ _iii) ~ order  ---- 
 ## random slope & intercept
 topt_order <- lme(topt ~ as_factor(order),
-                  random = ~ as_factor(order)|id,
+                  random = ~ as_factor(order)|as_factor(id),
                   weights = varFixed(~vi),
                   data = ir_dataset_clean_se,
                   control = lmeControl(sigma = 1))
