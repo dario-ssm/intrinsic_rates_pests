@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(brms)
 library(nlme)
+library(reactable)
 ```
 
 ## Thermal traits pest database:
@@ -25,8 +26,8 @@ Thermal traits database (from now on: [*TheTraPest*]{.smallcaps}) have been obta
 4.  Parameter extraction and *TheTraPest* database assembly.
 
 ```{r}
-thetrapest <- read_csv("C:/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/thermal_traits_individual.csv") %>% 
-  glimpse()
+thetrapest <- read_csv("C:/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/parameters_individual_fit_complemented.csv") 
+reactable(thetrapest)
 ```
 
 ## Background on meta-analyses and thermal-traits modelling procedures:
@@ -35,15 +36,37 @@ thetrapest <- read_csv("C:/Users/dario-ssm/Documents/Dario Investigacion/IntRaPe
 
 We follow considerations of other recent meta-analytical hierarchical models that have been carried out for physiological traits as it is our case [@kharouba2018; @ettinger2020; @buckley2017]. Similarly, except for origin of the data, similar hierarchical models have been used for thermal traits variability [@herrando-pérez2020]; whereas other approaches used more complex analyses such as random forest [@bennett2021].
 
-Accordingly, we will use comparative analyses following different approaches and packages in R [@rcoreteam2021]: *linear mixed-effects* (i.e. *hierarchical*) *regression* with `nlme` package as in @buckley2017 and alternatively with `metafor` package [@viechtbauer2010]. In addition, to avoid model assumption caveats, we performed a Bayesian hierarchical model as in @kharouba2018 using Stan-compiled `brms` package [@b�rkner2017] for R.
+Accordingly, we will use comparative analyses following different approaches and packages in R [@rcoreteam2021]: *linear mixed-effects* (i.e. *hierarchical*) *regression* with `nlme` package (as in @buckley2017 ?) and alternatively with `metafor` package [@viechtbauer2010].
 
-All models were considered for meta-analysis following existing guidelines in Maximum likelihood [@mengersen2013] and Bayesian Inference approaches [@schmid2013] on a mixed-effect modelling baseline [@zuur2009a].
+All models were considered for meta-analysis following existing guidelines in Maximum likelihood [@mengersen2013] (((and Bayesian Inference approaches [@schmid2013]))) on a mixed-effect modelling baseline [@zuur2009a].
 
-#### Meta-analysis features:
+#### Meta-analysis features: TO BE DONE SOON
 
 There are different issues that should be taken into account when performing a meta-analysis in ecology: assessment of publication bias and heterogeneity quantification, an appropriate weighting decision and existence of different conditions such as independency between effect size estimators, collinearity among covariates and between-study consistency [@nakagawa2017; @koricheva2014]. Including specific tools such as forest plots, bubble plots, funnel plots and sensitivity analyses to assess and visualize these issues is helpful to detect signal amid noise [@gurevitch2018] and, thus, a recommended (if not mandatory) reliability practice when conducting meta-analysis according to reference manuals )insert ref).
 
 ## Analyses: methods
+
+#### Exploratory data analysis
+
+We examine whether outliers should be remove. We select those whose parameter's standard error is lower than Q~95.~ ¿Seguir indicaciones de Harr...?
+
+```{r echo=TRUE}
+## apply filters 
+range(thetrapest$tmin)
+q_tmin <- quantile(thetrapest$tmin, probs = 0.05)
+q_tmin_se <-quantile(thetrapest$tmin_se, probs = .95)
+range(thetrapest$tmax)
+q_tmax <- quantile(thetrapest$tmax,probs = .95)
+q_tmax_se <- quantile(thetrapest$tmax_se,probs = .95)
+range(thetrapest$topt)
+q_topt <- quantile(thetrapest$topt,probs = .95)
+q_topt_se <- quantile(thetrapest$topt_se,probs = .95)
+ir_dataset_clean_se <- thetrapest %>% 
+  filter(tmax_se <= q_tmax_se &
+           tmin_se <= q_tmin_se &
+           topt_se <= q_topt_se)
+reactable(ir_dataset_clean_se)
+```
 
 #### Model asssumptions:
 
@@ -51,13 +74,12 @@ Meta-analysis classical methodologies relies on assumptions of normality of the 
 
 1.  **Normality**:
 
-Via histograms:
+Via histograms, without outliers:
 
-```{r echo=TRUE}
-## via histograms
+```{r}
 #Tmin
-lm_tmin <- lm(Tmin_est ~ id,
-              data = thetrapest)
+lm_tmin <- lm(tmin ~ 1,
+              data = ir_dataset_clean_se)
 tmin_resid <- lm_tmin$residuals %>% 
   as_tibble()
 
@@ -66,8 +88,8 @@ hist_Tmin_est <- ggplot(tmin_resid, aes(value))+
   theme_classic()
 
 #Tmax
-lm_tmax <- lm(Tmax_est ~ id,
-              data = thetrapest)
+lm_tmax <- lm(tmax ~ 1,
+              data = ir_dataset_clean_se)
 tmax_resid <- lm_tmax$residuals %>% 
   as_tibble()
 
@@ -76,89 +98,29 @@ hist_Tmax_est <- ggplot(tmax_resid, aes(value))+
   theme_classic()
 
 #Topt
-lm_topt <- lm(Topt_est ~ id,
-              data = thetrapest)
+lm_topt <- lm(topt ~ 1,
+              data = ir_dataset_clean_se)
 topt_resid <- lm_topt$residuals %>% 
   as_tibble()
-
 
 hist_Topt_est <- ggplot(topt_resid, aes(value))+
   geom_histogram(fill = "purple2", binwidth = 1)+
   theme_classic()
-
-grid_histo <- cowplot::plot_grid(hist_Tmin_est,hist_Tmax_est,hist_Topt_est,nrow = 1)
-grid_histo
-
-map(thetrapest %>% 
-      select(Tmin_est, 
-             Tmax_est, 
-             Topt_est), 
-    shapiro.test)
-```
-
-and via tests:
-
-```{r}
-shapiro.test(thetrapest$Tmin_est)
-shapiro.test(thetrapest$Tmax_est)
-shapiro.test(thetrapest$Topt_est)
-
-## NO NORMALITY... let's eliminate outliers
-
-```
-
-And without outliers:
-
-```{r}
-thetrapest_filter <- thetrapest %>% 
-  filter(Tmin_est >=-5 & 
-         Tmax_est <=60)
-  
-## via histograms
-#Tmin
-lm_tmin <- lm(Tmin_est ~ id,
-              data = thetrapest_filter)
-tmin_resid <- lm_tmin$residuals %>% 
+#a
+lm_a <- lm(a_est~1,
+            data = ir_dataset_clean_se)
+a_resid <- lm_a$residuals %>% 
   as_tibble()
 
-hist_Tmin_est <- ggplot(tmin_resid, aes(value))+
-  geom_histogram(fill = "cadetblue3", binwidth = 1)+
-  theme_classic()
-
-#Tmax
-lm_tmax <- lm(Tmax_est ~ id,
-              data = thetrapest_filter)
-tmax_resid <- lm_tmax$residuals %>% 
-  as_tibble()
-
-hist_Tmax_est <- ggplot(tmax_resid, aes(value))+
-  geom_histogram(fill = "firebrick2", binwidth = 1)+
-  theme_classic()
-
-#Topt
-lm_topt <- lm(Topt_est ~ id,
-              data = thetrapest_filter)
-topt_resid <- lm_topt$residuals %>% 
-  as_tibble()
-
-
-hist_Topt_est <- ggplot(topt_resid, aes(value))+
-  geom_histogram(fill = "purple2", binwidth = 1)+
+hist_a_est <- ggplot(a_resid, aes(value))+
+  geom_histogram(fill = "green4", binwidth = 1)+
   theme_classic()
 
 grid_histo <- cowplot::plot_grid(hist_Tmin_est,hist_Tmax_est,hist_Topt_est,nrow = 1)
 grid_histo
-
-map(thetrapest_filter %>% 
-      select(Tmin_est, 
-             Tmax_est, 
-             Topt_est), 
-    shapiro.test)
 ```
 
-It gets much better after cleaning outliers (these outliers come from huge standard errors of model fitting, so they are not biologically meaningful).
-
-But let's check out the residuals and other assumptions with `performance` .
+Let's check out the residuals and other assumptions with `performance` .
 
 ```{r}
 library(performance)
@@ -167,20 +129,26 @@ performance::check_model(lm_tmax)
 performance::check_model(lm_topt)
 
 
-# not THAT bad
+# not THAT bad. Some values at some acari...
 ```
 
-(done for filtered dataset, we might need to change this).
+### Summary effects analysis:
 
-#### Summary effects analysis:
+For summary effect will be computed after applying a random-effects model with *study* treated as the grouping variable, and each parameterised thermal trait (*i.e.* *T*<sub>min</sub>, *T*<sub>max</sub> and *T*<sub>opt</sub>) as the standardized effect size, following guidelines by @handbook2013. Estimation of the summary effect was computed following \@handbook2013 (see chapter...).
 
-For summary effect will be computed after applying a random-effects model with *study* treated as the grouping variable, and each parameterised thermal trait (*i.e.* *T*<sub>min</sub>, *T*<sub>max</sub> and *T*<sub>opt</sub>) as the standardized effect size, following guidelines by @handbook2013. Estimation of the summary effect was computed following @introduc2009.
+#### a) Tmin
+
+We fitted a random-intercept mixed-effects model to assess lower thermal threshold variability across studies with `lme()`.
 
 ```{r}
-library(nlme)
-random_tmin <- lme(Tmin_est ~ 1id,
-                   random = list(id),
-                   data = thetrapest_filter)
+
+tmin_intercept <- lme(tmin ~ 1,
+                      random = ~1|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmin_intercept)
+performance::check_model(tmin_intercept)
 ```
 
 #### Heterogeneity of estimates:
@@ -189,13 +157,13 @@ To quantify heterogeneity of the response along categorical or numerical variabl
 
 -   For **continuous covariates** (i.e. latitude in absolute value), we performed a *meta-regression* (as in @buckley2017 and @deutsch2008 ) with each thermal trait estimate as response variable. Heterogeneity was quantified with *between-studies* explained proportion of variance (*I*<sup>2</sup>) and a new *R*<sup>2</sup> coming from a Q-test [@introduc2009].
 
--   For **categorical variables**, we performed hierarchical factorial models [@handbook2013] across categorical covariates such as *taxonomic order*, *feeding guild* and combinations of both. In these cases we quantified heterogeneity in a similar way than for covariates, without meta-regression considerations following @introduc2009
+-   For **categorical variables**, we performed hierarchical factorial models [@handbook2013] across categorical covariates such as *taxonomic order* and *feeding guild*. In these cases we quantified heterogeneity in a similar way than for covariates, without meta-regression considerations following @introduc2009
 
 In both cases, weights and heterogeneity estimators were computed following reference books [@handbook2013; @introduc2009].
 
 #### Heterogeneity of variation:
 
-Aiming to explore biogeographical hypothesis of *cold-tolerance* $$@bennett2021a; @sunday2019; @herrando-pérez2020$$, we examined how variability of estimates differs among thermal traits. (blablabla) and across latitudes $$@deutsch2008a; @buckley2017$$. Following @herrando-p�rez2020a, we examined variability using boxplots and tests of variance homogeneity such as Levene's. (interesting if we repeat the batches process by them?).
+Aiming to explore biogeographical hypothesis of *cold-tolerance* $$@bennett2021a; @sunday2019; @herrando-pérez2020$$, we examined how variability of estimates differs among thermal traits. (blablabla) and across latitudes $$@deutsch2008a; @buckley2017$$. Following \@herrando-p?rez2020a, we examined variability using boxplots and tests of variance homogeneity such as Levene's. (interesting if we repeat the batches process by them?).
 
 ¿t-test? see possibilities here.
 

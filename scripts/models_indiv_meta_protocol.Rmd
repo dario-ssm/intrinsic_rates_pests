@@ -21,7 +21,9 @@ library(magrittr)
 library(cowplot)
 library(car)
 library(brms)
-
+library(knitr)
+library(reactable)
+library(multcomp)
 ```
 
 # Individual-study approach:
@@ -36,22 +38,9 @@ Thermal traits database (from now on: [*TheTraPest*]{.smallcaps}) have been obta
 4.  Parameter extraction and *TheTraPest* database assembly.
 
 ```{r, echo = FALSE}
-thetrapest <- read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/thermal_traits_individual.csv") %>% 
-  glimpse()
-thetrapest_weighted <- thetrapest %>% 
-  mutate(weights_tmax = 1/Tmax_se,
-         weights_tmin = 1/Tmin_se,
-         weights_topt = 1/Topt_se,
-         id = as_factor(id)
-         )
+thetrapest <- read_csv("C:/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/parameters_individual_fit_complemented.csv") 
+reactable(thetrapest)
 
-ggplot(thetrapest, aes(Tmin_est))+
-  geom_boxplot()+
-  geom_label(
-    label=rownames(thetrapest), 
-    nudge_x = 0.25, nudge_y = 0.25, 
-    check_overlap = T
-  )
 ```
 
 ## Background on meta-analyses and thermal-traits modelling procedures:
@@ -60,7 +49,7 @@ ggplot(thetrapest, aes(Tmin_est))+
 
 We follow considerations of other recent meta-analytical hierarchical models that have been carried out for physiological traits as it is our case [@kharouba2018; @ettinger2020; @buckley2017]. Similarly, except for origin of the data, similar hierarchical models have been used for thermal traits variability [@herrando-pÃ©rez2020]; whereas other approaches used more complex analyses such as random forest [@bennett2021].
 
-Accordingly, we will use comparative analyses following different approaches and packages in R [@rcoreteam2021]: *linear mixed-effects* (i.e. *hierarchical*) *regression* with `nlme` package as in @buckley2017 and alternatively with `metafor` package [@viechtbauer2010]. In addition, to avoid model assumption caveats, we performed a Bayesian hierarchical model as in @kharouba2018 using Stan-compiled `brms` package [@bürkner2017] for R.
+Accordingly, we will use comparative analyses following different approaches and packages in R [@rcoreteam2021]: *linear mixed-effects* (i.e. *hierarchical*) *regression* with `nlme` package as in @buckley2017 ~~(((((and alternatively with `metafor` package [@viechtbauer2010])))))~~. ~~In addition, to avoid model assumption caveats, we performed a Bayesian hierarchical model as in @kharouba2018 using Stan-compiled `brms` package [@bürkner2017] for R.~~
 
 All models were considered for meta-analysis following existing guidelines in Maximum likelihood [@mengersen2013] and Bayesian Inference approaches [@schmid2013] on a mixed-effect modelling baseline [@zuur2009a].
 
@@ -68,21 +57,372 @@ All models were considered for meta-analysis following existing guidelines in Ma
 
 There are different issues that should be taken into account when performing a meta-analysis in ecology: assessment of publication bias and heterogeneity quantification, an appropriate weighting decision and existence of different conditions such as independency between effect size estimators, collinearity among covariates and between-study consistency [@nakagawa2017; @koricheva2014]. Including specific tools such as forest plots, bubble plots, funnel plots and sensitivity analyses to assess and visualize these issues is helpful to detect signal amid noise [@gurevitch2018] and, thus, a recommended (if not mandatory) reliability practice when conducting meta-analysis according to reference manuals )insert ref).
 
-## Analyses: an example:
+## Analyses: methods
 
-```{r create training dataset with acari, echo = FALSE}
-acari <- thetrapest_weighted %>% 
-  filter(order == "Acari") %>% 
+#### Exploratory data analysis
+
+We examine whether outliers should be remove. We select those whose parameter's standard error is lower than Q~95.~ ¿Seguir indicaciones de Harr...?
+
+```{r echo=TRUE}
+## apply filters 
+range(thetrapest$tmin)
+q_tmin <- quantile(thetrapest$tmin, probs = 0.05)
+q_tmin_se <-quantile(thetrapest$tmin_se, probs = .95)
+range(thetrapest$tmax)
+q_tmax <- quantile(thetrapest$tmax,probs = .95)
+q_tmax_se <- quantile(thetrapest$tmax_se,probs = .95)
+range(thetrapest$topt)
+q_topt <- quantile(thetrapest$topt,probs = .95)
+q_topt_se <- quantile(thetrapest$topt_se,probs = .95)
+ir_dataset_clean_se <- thetrapest %>% 
+  filter(tmax_se <= q_tmax_se &
+           tmin_se <= q_tmin_se &
+           topt_se <= q_topt_se)
+reactable(ir_dataset_clean_se)
+```
+
+#### Model asssumptions:
+
+Meta-analysis classical methodologies relies on assumptions of normality of the parameter estimates when a non standard effect size metric is used [@handbook2013]. Consequently, we checked normality distribution of the parameters using histograms and Shapiro-tests and using `performance` package to check the model assumptions. These assumptions are not required to be accomplished in the Bayesian approach described below.
+
+1.  **Normality**:
+
+Via histograms, without outliers:
+
+```{r}
+#Tmin
+lm_tmin <- lm(tmin ~ 1,
+              data = ir_dataset_clean_se)
+tmin_resid <- lm_tmin$residuals %>% 
+  as_tibble()
+
+hist_Tmin_est <- ggplot(tmin_resid, aes(value))+
+  geom_histogram(fill = "cadetblue3", binwidth = 1)+
+  theme_classic()
+
+#Tmax
+lm_tmax <- lm(tmax ~ 1,
+              data = ir_dataset_clean_se)
+tmax_resid <- lm_tmax$residuals %>% 
+  as_tibble()
+
+hist_Tmax_est <- ggplot(tmax_resid, aes(value))+
+  geom_histogram(fill = "firebrick2", binwidth = 1)+
+  theme_classic()
+
+#Topt
+lm_topt <- lm(topt ~ 1,
+              data = ir_dataset_clean_se)
+topt_resid <- lm_topt$residuals %>% 
+  as_tibble()
+
+hist_Topt_est <- ggplot(topt_resid, aes(value))+
+  geom_histogram(fill = "purple2", binwidth = 1)+
+  theme_classic()
+#a
+lm_a <- lm(a_est~1,
+            data = ir_dataset_clean_se)
+a_resid <- lm_a$residuals %>% 
+  as_tibble()
+
+grid_histo <- cowplot::plot_grid(hist_Tmin_est,hist_Tmax_est,hist_Topt_est,nrow = 1)
+grid_histo
+```
+
+Let's check out the residuals and other assumptions with `performance` .
+
+```{r}
+library(performance)
+performance::check_model(lm_tmin)
+performance::check_model(lm_tmax)
+performance::check_model(lm_topt)
+
+
+# not THAT bad. Some values at some acari...
+```
+
+## Summary effects analysis:
+
+For summary effect will be computed after applying a **random -intercept** model with *study* treated as the grouping variable, and each parameterised thermal trait (*i.e.* *T*<sub>min</sub>, *T*<sub>max</sub> and *T*<sub>opt</sub>) as the standardized effect size, following guidelines by @handbook2013. Estimation of the summary effect was computed following @handbook2013 (see chapter...).
+
+We fitted a random-intercept mixed-effects model to assess thermal traitsvariability across studies with `lme()`. Note that in a meta-analysis context it is required to weight each study with inverse-variance. Thus, we use the given standard errors (`vi`) and incorporate them at the model with the argument `weights = varFixed(~vi)`. In addition, according to Viechtbauer, **`metafor`** package developer, in nlme package we need to add an argument `control = lmeControl(sigma = 1)` to tell the model that we *indeed* know the variances given at each study (*i.e.* the *sampling variances* representing the *within-studies* variance) and avoid its modelling.
+
+> *"First of all, it's good to see that you are well aware of the fact that lme() without lmeControl(sigma=1) will lead to the estimation of the residual variance component, which implies that the sampling variances specified via varFixed() are only assumed to be known up to a proportionality constant -- however, in the usual meta-analytic models, we assume that the sampling variances are exactly known. In fact, trying to disentangle that residual variance component from any random study effects is usually next to impossible. I mention this explicitly one more time, because I have seen some publications using lme() in exactly this way ..."* -- Viechtbauer ([blog response](https://r-help.stat.math.ethz.narkive.com/ClFcC12h/r-mixed-effects-meta-regression-nlme-vs-metafor)).
+
+And similarly, according to Heisterkamp (2017):
+
+> *For some applications, it is not appropriate to estimate the residual error, especially when it is known in advance based on evidence from past studies, or a theoretically derived scaling parameter. An example of the former are meta-analyses where the standard deviation of individual patient outcomes in each study is reported.*
+
+and Pustejovski (2016) in this [blog post](https://www.jepusto.com/bug-in-nlme-with-fixed-sigma/) :
+
+> *About one year ago, the `nlme` package introduced a feature that allowed the user to specify a fixed value for the residual variance in linear mixed effect models fitted with `lme()`. This feature is interesting to me because, when used with the `varFixed()` specification for the residual weights, it allows for estimation of a wide variety of meta-analysis models, including basic random effects models, bivariate models for estimating effects by trial arm, and other sorts of multivariate/multi-level random effects models.*
+
+In contrast, @handbook2013a point out that nlme package directly gives an output for *between-studies* variance (i.e. random std. dev.) and *within-studies variance* (residuals std. dev.).
+
+Synthesizing all of that, we fit a random-intercept model for thermal traits:
+
+#### a) Tmin
+
+```{r}
+
+tmin_intercept <- lme(tmin ~ 1,
+                      random = ~1|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmin_intercept)
+VarCorr(tmin_intercept)
+#performance::check_model(tmin_intercept)
+```
+
+The *summary effect* here for *T*~min~ would be an estimate of ***T***~**min**~ **= 11.12 ºC** with a *between-study* std. deviation 𝜏 **= 5.177**.
+
+#### b) Tmax
+
+```{r}
+tmax_intercept <- lme(tmax ~ 1,
+                      random = ~1|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmax_intercept)
+VarCorr(tmax_intercept)
+#performance::check_model(tmin_intercept)
+```
+
+The *summary effect* here for *T*~max~ is ***T***~**max**~ **= 11.12 ºC** with a *between-study* std. deviation **𝜏 = 6.61**.
+
+#### c) Topt
+
+```{r}
+
+topt_intercept <- lme(topt ~ 1,
+                      random = ~1|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(topt_intercept)
+VarCorr(topt_intercept)
+#performance::check_model(tmin_intercept)
+```
+
+The *summary effect* here for *T*~opt~ is ***T***~**opt**~ **= 30.37 ºC** with a *between-study* std. deviation **𝜏 = 5.075**.
+
+#### d) a (magnitude)
+
+```{r}
+a_intercept <- lme(a_est ~ 1,
+                   random = ~1|id,
+                   weights = varFixed(~vi),
+                   data = ir_dataset_clean_se,
+                   control = lmeControl(sigma = 1))
+summary(a_intercept)
+VarCorr(a_intercept)
+#performance::check_model(tmin_intercept)
+```
+
+The *summary effect* here for *a* is ***a*** **= 0.000127** with a *between-study* std. deviation **𝜏 = 0.00000104**.
+
+## Incorporating covariates:
+
+To quantify both summary effects and assess heterogeneity of the response along categorical or numerical variables, we performed hierarchical linear models (also known as *mixed-effects*) with *study* being treated again as grouping variable and variables of interest as covariates.
+
+-   For **continuous covariates** (i.e. latitude in absolute value), we performed a *meta-regression* (as in @buckley2017 and @deutsch2008 ) with each thermal trait estimate as response variable. Heterogeneity was quantified with *between-studies* explained proportion of variance (*I*<sup>2</sup>).
+
+For **categorical variables**, we performed hierarchical factorial models [@handbook2013] across categorical covariates such as *taxonomic order* and *feeding guild*. In these cases we quantified heterogeneity in a similar way than for covariates, without meta-regression considerations following @introduc2009.
+
+#### a) Latitude
+
+Previous studies have examined latitudinal trends of different thermal traits, either for biogeographical projections [@buckley2017; @deutsch2008] or for assessment of thermal tolerance hypotheses testing [@sunday2011; @hoffmann2013; @araújo2013].
+
+We follow the same procedure as before incorporating absolute value of latitude to the right-hand side of the equation in the model and as numerator component of the grouping variable in the random argument.
+
+-   *T~min~*
+
+```{r}
+# _ _ _ _ii) ~ lat  ---- 
+## random slope & intercept
+tmin_lat_slope <- lme(tmin ~ abs(lat),
+                      random = ~abs(lat)|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmin_lat_slope)
+```
+
+Here, lower temperature threshold at the Equator would be **16.49 ºC** and it significantly decreases at higher latitudes, as expected (**slope = -0.175,** *p = 0.016*).
+
+-   ***T~max~***
+
+```{r}
+# _ _ _ _ii) ~ lat  ---- 
+## random slope & intercept
+tmax_lat_slope <- lme(tmax ~ abs(lat),
+                      random = ~abs(lat)|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(tmax_lat_slope)
+```
+
+Here, upper temperature threshold at the equator would be **35.64ºC** and it does not vary significantly along latitude (*p* = 0.797).
+
+-   ***T~opt~***
+
+```{r}
+# _ _ _ _ii) ~ lat  ---- 
+## random slope & intercept
+topt_lat_slope <- lme(topt ~ abs(lat),
+                      random = ~abs(lat)|id,
+                      weights = varFixed(~vi),
+                      data = ir_dataset_clean_se,
+                      control = lmeControl(sigma = 1))
+summary(topt_lat_slope)
+```
+
+Here, optimal temperature at the equator would be **30.60 ºC** and it does not vary significantly along latitude (*p* = 0.881).
+
+#### b) Feeding guild
+
+We subset for Borers, Chewers and Suckers feeding guilds, which are by far the most represented in the dataset.
+
+```{r}
+ir_dataset_clean_se_fg <- ir_dataset_clean_se %>% 
+  filter(feeding_guild == "borer" |
+           feeding_guild == "chewer" |
+           feeding_guild == "sucker") %>%
   glimpse()
 ```
 
-### Summary analysis:
+-    ***T***~**min**~
 
-A summary analysis does not incorporate covariate. Note some assumptions:
+```{r}
+tmin_feeding_guild <- lme(tmin ~ as_factor(feeding_guild),
+                          random = ~ as_factor(feeding_guild)|id,
+                          weights = varFixed(~vi),
+                          data = ir_dataset_clean_se_fg,
+                          control = lmeControl(sigma = 1))
+summary(tmin_feeding_guild)
+emmeans(tmin_feeding_guild, list(pairwise ~ feeding_guild), adjust = "tukey")
+```
 
-1.  Model assumes normality (at least by now)
-2.  Weights must be incorporated with inverse variances of each study
-3.  
+Here, lower temperature thresholds are not significantly different for borers(***T***~**min**~ = **13.1ºC**), chewers (***T***~**min**~ = **10.7 ºC**) and suckers (***T***~**min**~ = **10.8 ºC**).
+
+-    ***T***~**max**~
+
+```{r}
+tmax_feeding_guild <- lme(tmax ~ as_factor(feeding_guild),
+                          random = ~ as_factor(feeding_guild)|id,
+                          weights = varFixed(~vi),
+                          data = ir_dataset_clean_se_fg,
+                          control = lmeControl(sigma = 1))
+summary(tmax_feeding_guild)
+emmeans(tmax_feeding_guild, list(pairwise ~ feeding_guild), adjust = "tukey")
+```
+
+Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0195) differ for borers (***T***~**max\ [borer]{.smallcaps}**~ = **32.3 ºC**) and suckers (***T***~**max\ [sucker]{.smallcaps}**~= **38.0 ºC**)but not for any pairwise comparison involving chewers (***T***~**max\ [chewer]{.smallcaps}**~ = **35.0 ºC**)
+
+-   ***T***~**opt**~
+
+```{r}
+## random slope & intercept
+topt_fg <- lme(topt ~ as_factor(feeding_guild),
+                  random = ~ as_factor(feeding_guild)|id,
+                  weights = varFixed(~vi),
+                  data = ir_dataset_clean_se_fg,
+                  control = lmeControl(sigma = 1))
+summary(topt_fg)
+emmeans(topt_fg, list(pairwise ~ feeding_guild), adjust = "tukey")
+```
+
+Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0182) differ for borers (***T***~**opt\ [borer]{.smallcaps}**~ = **27.6 ºC**) and Acari (***T***~**opt\ [Acari]{.smallcaps}**~ = **31.8 ºC**)but not for any pairwise comparison involving chewer (***T***~**opt\ [chewer]{.smallcaps}**~= **29.4 ºC**)
+
+#### c) Order
+
+We subset for Acari, Lepidoptera and Hemiptera orders, which are by far the most represented in the dataset.
+
+```{r}
+ir_dataset_clean_se_order <- ir_dataset_clean_se %>% 
+  filter(order == "Acari" |
+           order == "Hemiptera" |
+           order == "Lepidoptera") %>%
+  glimpse()
+```
+
+-    ***T***~**min**~
+
+```{r}
+## random slope & intercept
+tmin_order <- lme(tmin ~ as_factor(order),
+                  random = ~ as_factor(order)|id,
+                  weights = varFixed(~vi),
+                  data = ir_dataset_clean_se_order,
+                  control = lmeControl(sigma = 1))
+summary(tmin_order)
+emmeans(tmin_order, list(pairwise ~ order), adjust = "tukey")
+```
+
+Here, lower temperature thresholds are not significantly different for Lepidoptera (***T***~**min**~ = **11.28 ºC**), Hemiptera (***T***~**min**~ = **11.87 ºC**) and Acari (***T***~**min**~ = **9.16 ºC**).
+
+-    ***T***~**max**~
+
+```{r}
+## random slope & intercept
+tmax_order <- lme(tmax ~ as_factor(order),
+                  random = ~ as_factor(order)|id,
+                  weights = varFixed(~vi),
+                  data = ir_dataset_clean_se_order,
+                  control = lmeControl(sigma = 1))
+summary(tmax_order)
+emmeans(tmax_order, list(pairwise ~ order), adjust = "tukey")
+```
+
+Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0195) differ for Lepidoptera (***T***~**max\ [Lepidoptera]{.smallcaps}**~ = **33.3 ºC**) and Acari (***T***~**max\ [Acari]{.smallcaps}**~ = **40.5 ºC**)but not for any pairwise comparison involving Hemiptera (***T***~**max\ [hemiptera]{.smallcaps}**~ = **35.1 ºC**)
+
+-   ***T***~**opt**~
+
+```{r}
+## random slope & intercept
+topt_order <- lme(topt ~ as_factor(order),
+                  random = ~ as_factor(order)|id,
+                  weights = varFixed(~vi),
+                  data = ir_dataset_clean_se_order,
+                  control = lmeControl(sigma = 1))
+summary(topt_order)
+emmeans(topt_order, list(pairwise ~ order), adjust = "tukey")
+```
+
+Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0182) differ for Lepidoptera (***T***~**opt\ [Lepidoptera]{.smallcaps}**~ = **33.6 ºC**) and Acari (***T***~**opt\ [Acari]{.smallcaps}**~ = **28.1 ºC**)but not for any pairwise comparison involving Hemiptera (***T***~**opt\ [hemiptera]{.smallcaps}**~ = **29.6 ºC**)
+
+#### Other questions remaining: (Huey y Kingsolver, 200?, Fraizier et al. 2006)
+
+> *¿Is there a positive correlation between Topt and r? (Hotter is better)*
+
+Esto lo podríamos estudiar con la relación entre *a* y *Topt*, ya que *a* indica la magnitud de r (mayor a implica mayor valor de *r*).
+
+> *¿Thermal breadth variability?*
+
+Podemos estudiar si, además de los traits individuales, varía de alguna forma el thermal breadth entre grupos y latitudes. ¿Entre especialistas y generalistas? ¿?
+
+> Hotter is better for mites
+
+Los ácaros de nuestro dataset pueden servirnos para esto. Podemos ver si a mayor latitud disminuye el r, y también la propia curva para caracterizar ese *hotter is better* de forma precisa.
+
+> ¿Is there a positive correlation between Tmax and r?
+
+Similar a la anterior, en este caso con la máxima.
+
+> Taxa grandes aumentan Tmin más que los taxa pequeños para compensar el déficit que tienen por tamaño.
+
+Asumiendo que lepidoptera son mucho más grandes que ácaros, cabría esperar que los ácaros varíen más sus traits hacia la derecha (ej. más respuesta a la latitud) que las mariposas, para las que el body size tiene mayor impacto relativo en el fitness. Ejemplos: la respuesta a latitud de ácaros debería ser mayor que en lepidópteros, thermal breadth de ácaros también menor que el de lepidópteros (los ácaros estarían más apretados y agobiados con desplazarse en la curva a la derecha).
+
+## Heterogeneity of variation:
+
+Aiming to explore biogeographical hypothesis of *cold-tolerance* $$@bennett2021a; @sunday2019; @herrando-pérez2020$$, we examined how variability of estimates differs among thermal traits. (blablabla) and across latitudes $$@deutsch2008a; @buckley2017$$. Following \@herrando-p?rez2020a, we examined variability using boxplots and tests of variance homogeneity such as Levene's. (interesting if we repeat the batches process by them?).
+
+¿t-test? see possibilities here.
+
+1.  
 
 #### a) Random effects model with `nlme`
 
@@ -124,25 +464,7 @@ kable(summary_nlme)
 
 ```
 
-As an example, the *summary effect* here for *T*~max~ would be an estimate of ***T***~**max**~ **= 36.51 ºC** with a between-study variance ***T^2^*** **= 7.75** (std. dev.) and *log-likelihood = -196.18.*
-
-#### b) Random effects model with `lmer`
-
-It gives an error saying that number of values in the grouping variable (*i.e.* study) must be lower than number of observations, being equal at this case.
-
-Two questions arise:
-
-1.  Should we group observations treated as different studies when they were obtained from the same study but from different treatments (e.g. different geographical locations or different species but same genus)? --> *studies 53 vs. 59 and 55-58.*
-
-2.  Should we incorporate nesting groups?
-
-    -   *Species* as random variable (examples in @kharouba2018 and @ettinger2020 ).
-
-    -   Other groups as random nested (e.g. `random = ~ 1|family/id`)
-
-#### c) Random effects nested model with `nlme` :
-
-Same approach as *a)* but now incorporating order as nesting factor into the random component (it might be species, probably better-off). Same estimates, same id stdev (within-studies var) and additional Qbet for order.
+A
 
 ### Categorical covariates group analyses:
 

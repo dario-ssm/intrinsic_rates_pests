@@ -142,7 +142,7 @@ nlme_fit_sims <- nlme(int_rate ~ briere1(a,temp = temp,Tmin,Tmax),
                                         sigma = 1 # to avoid within-studies variance modelling (for meta-analysis) 
                   )
 )
-
+save(nlme_fit_sims, file= "nlme_fit_sims.RData")
 sum_nlme_fit_sims <-summary(nlme_fit_sims)
 traits_nlme_fit3 <- as_tibble(sum_nlme_fit_sims$tTable) %>% 
   mutate(parameter = c("a", "Tmin", "Tmax"),
@@ -286,6 +286,7 @@ order_subset <- simulated_intrapest %>%
            order == "Hemiptera") %>% 
   glimpse()
 starts_ord 
+save(starts_ord, file = "starts_ord.RData")
 nlme_fit_sims_order <- nlme(int_rate ~ briere1(a,temp = temp,Tmin,Tmax),
                       start = starts_ord,
                       fixed = a+Tmin+Tmax ~ as.factor(order), 
@@ -296,10 +297,11 @@ nlme_fit_sims_order <- nlme(int_rate ~ briere1(a,temp = temp,Tmin,Tmax),
                       na.action = na.exclude,
                       control = nlmeControl(msMaxIter = 100, #recommendation by the console
                                             maxIter =  100, #recommendation by the console
-                                            pnlsTol = 1, #to achieve convergence
+                                            pnlsTol = 10, #to achieve convergence
                                             sigma = 1 # to avoid within-studies variance modelling (for meta-analysis) 
                       )
 )
+save(nlme_fit_sims_order,file = "nlme_fit_sims_order.RData")
 # ............. ii) feeding guild --------------------------------------------
 ## let's look for starting values for each order (only Borers, Suckers, Chewers)
 counts_feedguild <- IR_data_all %>%

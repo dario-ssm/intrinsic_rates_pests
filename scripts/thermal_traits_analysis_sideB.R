@@ -464,6 +464,8 @@ tmax_order <- lme(tmax ~ as_factor(order),
 summary(tmax_order)
 coefs_tmax_order <- as_tibble(coefficients(summary(tmax_order))) %>% 
   mutate(estimate = 33.419891+Value)
+library(emmeans)
+emmeans(tmax_order, list(pairwise ~ order), adjust = "tukey")
 performance::check_model(tmin_order)
 # _ _ _ _iv) ~ feeding guild  ---- 
 ## random slope & intercept
