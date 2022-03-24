@@ -11,19 +11,14 @@ csl: ecography.csl
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(nlme)
-library(knitr)
-library(lme4)
-library(svglite)
-library(nlstools)
-library(nls2)
-library(msm)
-library(magrittr)
 library(cowplot)
 library(car)
 library(brms)
 library(knitr)
 library(reactable)
-library(multcomp)
+library(emmeans)
+library(ggthemes)
+library(metafor)
 ```
 
 # Individual-study approach:
@@ -38,7 +33,9 @@ Thermal traits database (from now on: [*TheTraPest*]{.smallcaps}) have been obta
 4.  Parameter extraction and *TheTraPest* database assembly.
 
 ```{r, echo = FALSE}
-thetrapest <- read_csv("C:/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/parameters_individual_fit_complemented.csv") 
+thetrapest <- read_csv("C:/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/thermal_traits_complete.csv") %>% 
+  mutate(tol_range = tmax-tmin) %>% 
+  mutate(thermal_safety_margin = tmax-topt)
 reactable(thetrapest)
 
 ```
@@ -47,7 +44,7 @@ reactable(thetrapest)
 
 #### Statistical models:
 
-We follow considerations of other recent meta-analytical hierarchical models that have been carried out for physiological traits as it is our case [@kharouba2018; @ettinger2020; @buckley2017]. Similarly, except for origin of the data, similar hierarchical models have been used for thermal traits variability [@herrando-pÃ©rez2020]; whereas other approaches used more complex analyses such as random forest [@bennett2021].
+We follow considerations of other recent meta-analytical hierarchical models that have been carried out for physiological traits as it is our case [@kharouba2018; @ettinger2020; @buckley2017]. Similarly, except for origin of the data, similar hierarchical models have been used for thermal traits variability [@herrando-pérez2020]; whereas other approaches used more complex analyses such as random forest [@bennett2021].
 
 Accordingly, we will use comparative analyses following different approaches and packages in R [@rcoreteam2021]: *linear mixed-effects* (i.e. *hierarchical*) *regression* with `nlme` package as in @buckley2017 ~~(((((and alternatively with `metafor` package [@viechtbauer2010])))))~~. ~~In addition, to avoid model assumption caveats, we performed a Bayesian hierarchical model as in @kharouba2018 using Stan-compiled `brms` package [@bürkner2017] for R.~~
 
@@ -61,27 +58,7 @@ There are different issues that should be taken into account when performing a m
 
 #### Exploratory data analysis
 
-We examine whether outliers should be remove. We select those whose parameter's standard error is lower than Q~95.~ ¿Seguir indicaciones de Harr...?
-
-```{r echo=TRUE}
-## apply filters 
-range(thetrapest$tmin)
-q_tmin <- quantile(thetrapest$tmin, probs = 0.05)
-q_tmin_se <-quantile(thetrapest$tmin_se, probs = .95)
-range(thetrapest$tmax)
-q_tmax <- quantile(thetrapest$tmax,probs = .95)
-q_tmax_se <- quantile(thetrapest$tmax_se,probs = .95)
-range(thetrapest$topt)
-q_topt <- quantile(thetrapest$topt,probs = .95)
-q_topt_se <- quantile(thetrapest$topt_se,probs = .95)
-ir_dataset_clean_se <- thetrapest %>% 
-  filter(tmax_se <= q_tmax_se &
-           tmin_se <= q_tmin_se &
-           topt_se <= q_topt_se)
-reactable(ir_dataset_clean_se)
-```
-
-#### Model asssumptions:
+We examine whether outliers should be remove. We select those whose parameter's standard error is lower than Q~95.~ The dataset that we load here has been already filtered this way, and thermal breadth has also been calculated (see thermal_traits_analysis_sideB.R script)¿Seguir indicaciones de Harr...? Model asssumptions:
 
 Meta-analysis classical methodologies relies on assumptions of normality of the parameter estimates when a non standard effect size metric is used [@handbook2013]. Consequently, we checked normality distribution of the parameters using histograms and Shapiro-tests and using `performance` package to check the model assumptions. These assumptions are not required to be accomplished in the Bayesian approach described below.
 
@@ -92,7 +69,7 @@ Via histograms, without outliers:
 ```{r}
 #Tmin
 lm_tmin <- lm(tmin ~ 1,
-              data = ir_dataset_clean_se)
+              data = thetrapest)
 tmin_resid <- lm_tmin$residuals %>% 
   as_tibble()
 
@@ -102,7 +79,7 @@ hist_Tmin_est <- ggplot(tmin_resid, aes(value))+
 
 #Tmax
 lm_tmax <- lm(tmax ~ 1,
-              data = ir_dataset_clean_se)
+              data = thetrapest)
 tmax_resid <- lm_tmax$residuals %>% 
   as_tibble()
 
@@ -112,7 +89,7 @@ hist_Tmax_est <- ggplot(tmax_resid, aes(value))+
 
 #Topt
 lm_topt <- lm(topt ~ 1,
-              data = ir_dataset_clean_se)
+              data = thetrapest)
 topt_resid <- lm_topt$residuals %>% 
   as_tibble()
 
@@ -121,24 +98,12 @@ hist_Topt_est <- ggplot(topt_resid, aes(value))+
   theme_classic()
 #a
 lm_a <- lm(a_est~1,
-            data = ir_dataset_clean_se)
+            data = thetrapest)
 a_resid <- lm_a$residuals %>% 
   as_tibble()
 
 grid_histo <- cowplot::plot_grid(hist_Tmin_est,hist_Tmax_est,hist_Topt_est,nrow = 1)
 grid_histo
-```
-
-Let's check out the residuals and other assumptions with `performance` .
-
-```{r}
-library(performance)
-performance::check_model(lm_tmin)
-performance::check_model(lm_tmax)
-performance::check_model(lm_topt)
-
-
-# not THAT bad. Some values at some acari...
 ```
 
 ## Summary effects analysis:
@@ -157,7 +122,7 @@ and Pustejovski (2016) in this [blog post](https://www.jepusto.com/bug-in-nlme-w
 
 > *About one year ago, the `nlme` package introduced a feature that allowed the user to specify a fixed value for the residual variance in linear mixed effect models fitted with `lme()`. This feature is interesting to me because, when used with the `varFixed()` specification for the residual weights, it allows for estimation of a wide variety of meta-analysis models, including basic random effects models, bivariate models for estimating effects by trial arm, and other sorts of multivariate/multi-level random effects models.*
 
-In contrast, @handbook2013a point out that nlme package directly gives an output for *between-studies* variance (i.e. random std. dev.) and *within-studies variance* (residuals std. dev.).
+In contrast, @handbook2013 point out that nlme package directly gives an output for *between-studies* variance (i.e. random std. dev.) and *within-studies variance* (residuals std. dev.).
 
 Synthesizing all of that, we fit a random-intercept model for thermal traits:
 
@@ -168,7 +133,7 @@ Synthesizing all of that, we fit a random-intercept model for thermal traits:
 tmin_intercept <- lme(tmin ~ 1,
                       random = ~1|id,
                       weights = varFixed(~vi),
-                      data = ir_dataset_clean_se,
+                      data = thetrapest,
                       control = lmeControl(sigma = 1))
 summary(tmin_intercept)
 VarCorr(tmin_intercept)
@@ -183,7 +148,7 @@ The *summary effect* here for *T*~min~ would be an estimate of ***T***~**min**~ 
 tmax_intercept <- lme(tmax ~ 1,
                       random = ~1|id,
                       weights = varFixed(~vi),
-                      data = ir_dataset_clean_se,
+                      data = thetrapest,
                       control = lmeControl(sigma = 1))
 summary(tmax_intercept)
 VarCorr(tmax_intercept)
@@ -195,11 +160,10 @@ The *summary effect* here for *T*~max~ is ***T***~**max**~ **= 11.12 ºC** with 
 #### c) Topt
 
 ```{r}
-
 topt_intercept <- lme(topt ~ 1,
                       random = ~1|id,
                       weights = varFixed(~vi),
-                      data = ir_dataset_clean_se,
+                      data = thetrapest,
                       control = lmeControl(sigma = 1))
 summary(topt_intercept)
 VarCorr(topt_intercept)
@@ -214,7 +178,7 @@ The *summary effect* here for *T*~opt~ is ***T***~**opt**~ **= 30.37 ºC** with 
 a_intercept <- lme(a_est ~ 1,
                    random = ~1|id,
                    weights = varFixed(~vi),
-                   data = ir_dataset_clean_se,
+                   data = thetrapest,
                    control = lmeControl(sigma = 1))
 summary(a_intercept)
 VarCorr(a_intercept)
@@ -223,13 +187,28 @@ VarCorr(a_intercept)
 
 The *summary effect* here for *a* is ***a*** **= 0.000127** with a *between-study* std. deviation **𝜏 = 0.00000104**.
 
+#### e) Thermal breadth
+
+```{r}
+thermal_breadth_intercept <- lme(thermal_breadth ~ 1,
+                                 random = ~1|id,
+                                 weights = varFixed(~vi),
+                                 data = thetrapest,
+                                 control = lmeControl(sigma = 1))
+summary(thermal_breadth_intercept)
+VarCorr(thermal_breadth_intercept)
+#performance::check_model(tmin_intercept)
+```
+
+The *summary effect* here for the *thermal breadth* is ***thermal breadth*** **= 15.95ºC** with a *between-study* std. deviation **𝜏 = 5.134653**.
+
 ## Incorporating covariates:
 
 To quantify both summary effects and assess heterogeneity of the response along categorical or numerical variables, we performed hierarchical linear models (also known as *mixed-effects*) with *study* being treated again as grouping variable and variables of interest as covariates.
 
--   For **continuous covariates** (i.e. latitude in absolute value), we performed a *meta-regression* (as in @buckley2017 and @deutsch2008 ) with each thermal trait estimate as response variable. Heterogeneity was quantified with *between-studies* explained proportion of variance (*I*<sup>2</sup>).
+-   For **continuous covariates** (i.e. latitude in absolute value), we performed a *meta-regression* (as in @buckley2017 and @deutsch2008 ) with each thermal trait estimate as response variable.
 
-For **categorical variables**, we performed hierarchical factorial models [@handbook2013] across categorical covariates such as *taxonomic order* and *feeding guild*. In these cases we quantified heterogeneity in a similar way than for covariates, without meta-regression considerations following @introduc2009.
+For **categorical variables**, we performed hierarchical factorial models [@handbook2013] across categorical covariates such as *taxonomic order* and *feeding guild*.
 
 #### a) Latitude
 
@@ -245,7 +224,7 @@ We follow the same procedure as before incorporating absolute value of latitude 
 tmin_lat_slope <- lme(tmin ~ abs(lat),
                       random = ~abs(lat)|id,
                       weights = varFixed(~vi),
-                      data = ir_dataset_clean_se,
+                      data = thetrapest,
                       control = lmeControl(sigma = 1))
 summary(tmin_lat_slope)
 ```
@@ -260,7 +239,7 @@ Here, lower temperature threshold at the Equator would be **16.49 ºC** and it s
 tmax_lat_slope <- lme(tmax ~ abs(lat),
                       random = ~abs(lat)|id,
                       weights = varFixed(~vi),
-                      data = ir_dataset_clean_se,
+                      data = thetrapest,
                       control = lmeControl(sigma = 1))
 summary(tmax_lat_slope)
 ```
@@ -275,9 +254,39 @@ Here, upper temperature threshold at the equator would be **35.64ºC** and it do
 topt_lat_slope <- lme(topt ~ abs(lat),
                       random = ~abs(lat)|id,
                       weights = varFixed(~vi),
-                      data = ir_dataset_clean_se,
+                      data = thetrapest,
                       control = lmeControl(sigma = 1))
 summary(topt_lat_slope)
+```
+
+Here, optimal temperature at the equator would be **30.60 ºC** and it does not vary significantly along latitude (*p* = 0.881).
+
+-   ***Thermal Breadth***
+
+```{r, }
+## random slope & intercept
+thermal_breadth_lat_slope <- lme(thermal_breadth ~ abs(lat),
+                                 random = ~abs(lat)|id,
+                                 weights = varFixed(~vi),
+                                 data = thetrapest,
+                                 control = lmeControl(sigma = 1))
+summary(thermal_breadth_lat_slope)
+```
+
+Here, thermal breadth at the Equator would be **13.70 ºC** and it does not significantly vary across latitudes (*p* *=* 0.2).
+
+-   ***a***
+
+```{r}
+# _ _ _ _ii) ~ lat  ---- 
+## random slope & intercept
+a_lat_slope <- lme(a_est ~ abs(lat),
+                   random = ~abs(lat)|id,
+                   weights = varFixed(~vi),
+                   data = thetrapest,
+                   control = lmeControl(sigma = 1))
+summary(a_lat_slope) # nothing
+
 ```
 
 Here, optimal temperature at the equator would be **30.60 ºC** and it does not vary significantly along latitude (*p* = 0.881).
@@ -287,20 +296,19 @@ Here, optimal temperature at the equator would be **30.60 ºC** and it does not 
 We subset for Borers, Chewers and Suckers feeding guilds, which are by far the most represented in the dataset.
 
 ```{r}
-ir_dataset_clean_se_fg <- ir_dataset_clean_se %>% 
+thetrapest_fg <- thetrapest %>% 
   filter(feeding_guild == "borer" |
            feeding_guild == "chewer" |
-           feeding_guild == "sucker") %>%
-  glimpse()
+           feeding_guild == "sucker") 
 ```
 
--    ***T***~**min**~
+-   ***T***~**min**~
 
 ```{r}
 tmin_feeding_guild <- lme(tmin ~ as_factor(feeding_guild),
                           random = ~ as_factor(feeding_guild)|id,
                           weights = varFixed(~vi),
-                          data = ir_dataset_clean_se_fg,
+                          data = thetrapest_fg,
                           control = lmeControl(sigma = 1))
 summary(tmin_feeding_guild)
 emmeans(tmin_feeding_guild, list(pairwise ~ feeding_guild), adjust = "tukey")
@@ -308,19 +316,19 @@ emmeans(tmin_feeding_guild, list(pairwise ~ feeding_guild), adjust = "tukey")
 
 Here, lower temperature thresholds are not significantly different for borers(***T***~**min**~ = **13.1ºC**), chewers (***T***~**min**~ = **10.7 ºC**) and suckers (***T***~**min**~ = **10.8 ºC**).
 
--    ***T***~**max**~
+-   ***T***~**max**~
 
 ```{r}
 tmax_feeding_guild <- lme(tmax ~ as_factor(feeding_guild),
                           random = ~ as_factor(feeding_guild)|id,
                           weights = varFixed(~vi),
-                          data = ir_dataset_clean_se_fg,
+                          data = thetrapest_fg,
                           control = lmeControl(sigma = 1))
 summary(tmax_feeding_guild)
 emmeans(tmax_feeding_guild, list(pairwise ~ feeding_guild), adjust = "tukey")
 ```
 
-Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0195) differ for borers (***T***~**max\ [borer]{.smallcaps}**~ = **32.3 ºC**) and suckers (***T***~**max\ [sucker]{.smallcaps}**~= **38.0 ºC**)but not for any pairwise comparison involving chewers (***T***~**max\ [chewer]{.smallcaps}**~ = **35.0 ºC**)
+Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0195) differ for borers (***T***~**max [borer]{.smallcaps}**~ = **32.3 ºC**) and suckers (***T***~**max [sucker]{.smallcaps}**~= **38.0 ºC**)but not for any pairwise comparison involving chewers (***T***~**max [chewer]{.smallcaps}**~ = **35.0 ºC**)
 
 -   ***T***~**opt**~
 
@@ -329,34 +337,48 @@ Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0195) di
 topt_fg <- lme(topt ~ as_factor(feeding_guild),
                   random = ~ as_factor(feeding_guild)|id,
                   weights = varFixed(~vi),
-                  data = ir_dataset_clean_se_fg,
+                  data = thetrapest_fg,
                   control = lmeControl(sigma = 1))
 summary(topt_fg)
 emmeans(topt_fg, list(pairwise ~ feeding_guild), adjust = "tukey")
 ```
 
-Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0182) differ for borers (***T***~**opt\ [borer]{.smallcaps}**~ = **27.6 ºC**) and Acari (***T***~**opt\ [Acari]{.smallcaps}**~ = **31.8 ºC**)but not for any pairwise comparison involving chewer (***T***~**opt\ [chewer]{.smallcaps}**~= **29.4 ºC**)
+Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0182) differ for borers (***T***~**opt [borer]{.smallcaps}**~ = **27.6 ºC**) and Acari (***T***~**opt [Acari]{.smallcaps}**~ = **31.8 ºC**)but not for any pairwise comparison involving chewer (***T***~**opt [chewer]{.smallcaps}**~= **29.4 ºC**)
+
+-   ***T***~**Breadh**~
+
+```{r}
+## random slope & intercept
+thermal_breadth_fg <- lme(thermal_breadth ~ as_factor(feeding_guild),
+                          random = ~ as_factor(feeding_guild)|id,
+                          weights = varFixed(~vi),
+                          data = thetrapest_fg,
+                          control = lmeControl(sigma = 1))
+summary(thermal_breadth_fg)
+emmeans(thermal_breadth_fg, list(pairwise ~ feeding_guild), adjust = "tukey")
+```
+
+Here, thermal breadth significantly differs for borers (***T***~**Breadth**~ = 12.6 **ºC**) and suckers (***T***~**Breadth**~ = **17.2ºC**) but not for any pairwise comparison involving chewer (***T***~**Breadth**~ = **15.5 ºC**).
 
 #### c) Order
 
 We subset for Acari, Lepidoptera and Hemiptera orders, which are by far the most represented in the dataset.
 
 ```{r}
-ir_dataset_clean_se_order <- ir_dataset_clean_se %>% 
+thetrapest_order <- thetrapest %>% 
   filter(order == "Acari" |
            order == "Hemiptera" |
-           order == "Lepidoptera") %>%
-  glimpse()
+           order == "Lepidoptera") 
 ```
 
--    ***T***~**min**~
+-   ***T***~**min**~
 
 ```{r}
 ## random slope & intercept
 tmin_order <- lme(tmin ~ as_factor(order),
                   random = ~ as_factor(order)|id,
                   weights = varFixed(~vi),
-                  data = ir_dataset_clean_se_order,
+                  data = thetrapest_order,
                   control = lmeControl(sigma = 1))
 summary(tmin_order)
 emmeans(tmin_order, list(pairwise ~ order), adjust = "tukey")
@@ -364,20 +386,20 @@ emmeans(tmin_order, list(pairwise ~ order), adjust = "tukey")
 
 Here, lower temperature thresholds are not significantly different for Lepidoptera (***T***~**min**~ = **11.28 ºC**), Hemiptera (***T***~**min**~ = **11.87 ºC**) and Acari (***T***~**min**~ = **9.16 ºC**).
 
--    ***T***~**max**~
+-   ***T***~**max**~
 
 ```{r}
 ## random slope & intercept
 tmax_order <- lme(tmax ~ as_factor(order),
                   random = ~ as_factor(order)|id,
                   weights = varFixed(~vi),
-                  data = ir_dataset_clean_se_order,
+                  data = thetrapest_order,
                   control = lmeControl(sigma = 1))
 summary(tmax_order)
 emmeans(tmax_order, list(pairwise ~ order), adjust = "tukey")
 ```
 
-Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0195) differ for Lepidoptera (***T***~**max\ [Lepidoptera]{.smallcaps}**~ = **33.3 ºC**) and Acari (***T***~**max\ [Acari]{.smallcaps}**~ = **40.5 ºC**)but not for any pairwise comparison involving Hemiptera (***T***~**max\ [hemiptera]{.smallcaps}**~ = **35.1 ºC**)
+Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0195) differ for Lepidoptera (***T***~**max [Lepidoptera]{.smallcaps}**~ = **33.3 ºC**) and Acari (***T***~**max [Acari]{.smallcaps}**~ = **40.5 ºC**)but not for any pairwise comparison involving Hemiptera (***T***~**max [hemiptera]{.smallcaps}**~ = **35.1 ºC**)
 
 -   ***T***~**opt**~
 
@@ -386,27 +408,77 @@ Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0195) di
 topt_order <- lme(topt ~ as_factor(order),
                   random = ~ as_factor(order)|id,
                   weights = varFixed(~vi),
-                  data = ir_dataset_clean_se_order,
+                  data = thetrapest_order,
                   control = lmeControl(sigma = 1))
 summary(topt_order)
 emmeans(topt_order, list(pairwise ~ order), adjust = "tukey")
 ```
 
-Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0182) differ for Lepidoptera (***T***~**opt\ [Lepidoptera]{.smallcaps}**~ = **33.6 ºC**) and Acari (***T***~**opt\ [Acari]{.smallcaps}**~ = **28.1 ºC**)but not for any pairwise comparison involving Hemiptera (***T***~**opt\ [hemiptera]{.smallcaps}**~ = **29.6 ºC**)
+Here, upper temperature thresholds significantly after (Tukey's *p =* 0.0182) differ for Lepidoptera (***T***~**opt [Lepidoptera]{.smallcaps}**~ = **33.6 ºC**) and Acari (***T***~**opt [Acari]{.smallcaps}**~ = **28.1 ºC**)but not for any pairwise comparison involving Hemiptera (***T***~**opt [hemiptera]{.smallcaps}**~ = **29.6 ºC**)
 
-#### Other questions remaining: (Huey y Kingsolver, 200?, Fraizier et al. 2006)
+-   ***Thermal Breadth***
+
+```{r}
+## random slope & intercept
+thermal_breadth_order <- lme(thermal_breadth ~ as_factor(order),
+                             random = ~ as_factor(order)|id,
+                             weights = varFixed(~vi),
+                             data = thetrapest_order,
+                             control = lmeControl(sigma = 1))
+summary(thermal_breadth_order)
+emmeans(thermal_breadth_order, list(pairwise ~ order), adjust = "tukey")
+```
+
+Here, thermal_breadths significantly differ for Lepidoptera (***T***~**breadh**~ = **19.4 ºC**), and Acari (***T***~**breadh**~ = **14.2 ºC**), but not for any pairwise involving Hemiptera (***T***~**breadh**~ = **15.1 ºC**).
+
+-   ***Thermal Safety Margin (TSM)**:*
+
+```{r}
+## random slope & intercept
+tsm_order <- lme(thermal_safety_margin ~ as_factor(order),
+                 random = ~ as_factor(order)|id,
+                 weights = varFixed(~vi),
+                 data = thetrapest_order,
+                 control = lmeControl(sigma = 1))
+summary(tsm_order)
+emmeans(tsm_order, list(pairwise ~ order), adjust = "tukey")
+```
+
+Here, the **thermal safety margin** again significantly differs for Lepidoptera (***TSM*** = **6.96 ºC**), and Acari (***TSM*** = **5.14 ºC**), but not for any pairwise involving Hemiptera (***TSM*** = **5.49 ºC**).
+
+#### Other questions remaining: [@kingsolver; @frazier2006]
 
 > *¿Is there a positive correlation between Topt and r? (Hotter is better)*
 
-Esto lo podríamos estudiar con la relación entre *a* y *Topt*, ya que *a* indica la magnitud de r (mayor a implica mayor valor de *r*).
+Esto lo podríamos estudiar con la relación entre *a* y *Topt*, ya que *a* indica la magnitud de r (mayor *a* implica mayor valor de *r*).
 
-> *¿Thermal breadth variability?*
-
-Podemos estudiar si, además de los traits individuales, varía de alguna forma el thermal breadth entre grupos y latitudes. ¿Entre especialistas y generalistas? ¿?
+```{r}
+topt_a <- lme(topt ~ a_est,
+              random = ~1|id,
+              weights = varFixed(~vi),
+              data = thetrapest,
+              control = lmeControl(sigma = 1))
+summary(topt_a)
+plot(thetrapest$topt,thetrapest$a_est)
+```
 
 > Hotter is better for mites
 
-Los ácaros de nuestro dataset pueden servirnos para esto. Podemos ver si a mayor latitud disminuye el r, y también la propia curva para caracterizar ese *hotter is better* de forma precisa.
+Los ácaros de nuestro dataset pueden servirnos para esto. Podemos ver si a mayor latitud disminuye el r, y también la propia curva para caracterizar ese *hotter is better* de forma precisa. No parece que esto se cumpla...
+
+```{r}
+thetrapest_acari <- thetrapest %>% 
+  filter(order == "Acari")
+a_lat_plot <- ggplot(thetrapest_acari,aes(x=abs(lat), y=a_est))+
+  geom_point(color="gold2",alpha=0.1, position = position_jitter(width = 3))+
+  labs(title = "Variation in magnitude of r (proxy: parameter a)",
+       subtitle = "Mites",
+       x = "Absolute Latitude (º)", 
+       y = "a")+
+  ggthemes::theme_few()+
+  geom_smooth(method = "lm", color = "gold2")
+a_lat_plot
+```
 
 > ¿Is there a positive correlation between Tmax and r?
 
@@ -414,304 +486,187 @@ Similar a la anterior, en este caso con la máxima.
 
 > Taxa grandes aumentan Tmin más que los taxa pequeños para compensar el déficit que tienen por tamaño.
 
-Asumiendo que lepidoptera son mucho más grandes que ácaros, cabría esperar que los ácaros varíen más sus traits hacia la derecha (ej. más respuesta a la latitud) que las mariposas, para las que el body size tiene mayor impacto relativo en el fitness. Ejemplos: la respuesta a latitud de ácaros debería ser mayor que en lepidópteros, thermal breadth de ácaros también menor que el de lepidópteros (los ácaros estarían más apretados y agobiados con desplazarse en la curva a la derecha).
+Asumiendo que lepidoptera son mucho más grandes que ácaros, cabría esperar que los ácaros varíen más sus traits hacia la derecha (ej. más respuesta a la latitud) que las mariposas, para las que el body size tiene mayor impacto relativo en el fitness. Ejemplos: la respuesta a latitud de ácaros debería ser mayor que en lepidópteros, thermal breadth de ácaros también menor que el de lepidópteros (los ácaros estarían más apretados y agobiados con desplazarse en la curva a la derecha). [Ver en apartado de thermal breadth y de latitud.]{.ul}
+
+Según @sinclair2016, la ***thermal breadth*** la definimos como la distancia entre la temperatura en la que la respuesta es 50% del máximo por el lado izquierdo y la misma por el lado derecho; el **thermal tolerance range** es simplemente *tmax - tmin* y el **thermal safety margin** es *tmax - topt.*
 
 ## Heterogeneity of variation:
 
-Aiming to explore biogeographical hypothesis of *cold-tolerance* $$@bennett2021a; @sunday2019; @herrando-pérez2020$$, we examined how variability of estimates differs among thermal traits. (blablabla) and across latitudes $$@deutsch2008a; @buckley2017$$. Following \@herrando-p?rez2020a, we examined variability using boxplots and tests of variance homogeneity such as Levene's. (interesting if we repeat the batches process by them?).
+Aiming to explore biogeographical hypothesis of *cold-tolerance* [@bennett2021; @sunday2019; @sunday2011; @herrando-pérez2020], we examined how variability of estimates differs among thermal traits and across covariates such as latitude and order [@deutsch2008; @buckley2017]. Following @herrando-pérez2020 introduction, we examined variability both graphically (using boxplots, pointranges and violinplots) and tests of variance homogeneity such as Levene's).
 
-¿t-test? see possibilities here.
+### Graphical examination
 
-1.  
+#### Box \| Violin -- plots (traits \~ covariates)
 
-#### a) Random effects model with `nlme`
-
-```{r, echo = FALSE}
-tmax_sumeffect_nlme <- nlme::lme(Tmax_est ~ 1, 
-                               random = ~ 1|id,
-                               weights = ~ weights_tmax,
-                               data = thetrapest_weighted)
-
-tmin_sumeffect_nlme <- nlme::lme(Tmin_est ~ 1, 
-                               random = ~ 1|id,
-                               weights = ~ weights_tmin,
-                               data = thetrapest_weighted)
-
-topt_sumeffect_nlme <- nlme::lme(Topt_est ~ 1, 
-                               random = ~ 1|id,
-                               weights = ~ weights_topt,,
-                               data = thetrapest_weighted)
-
-
-summary_nlme <- tibble(parameters = c("tmax", "tmin", "topt"),
-                       estimates = c(tmax_sumeffect_nlme$coefficients$fixed,
-                                     tmin_sumeffect_nlme$coefficients$fixed,
-                                     topt_sumeffect_nlme$coefficients$fixed),
-                        between_stdy_var = c(VarCorr(tmax_sumeffect_nlme)[1,2],
-                                            VarCorr(tmin_sumeffect_nlme)[1,2],
-                                            VarCorr(topt_sumeffect_nlme)[1,2]
-                                            ),
-                        within_stdy_var = c(VarCorr(tmax_sumeffect_nlme)[2,2],
-                                           VarCorr(tmin_sumeffect_nlme)[2,2],
-                                           VarCorr(topt_sumeffect_nlme)[2,2]
-                                           ),
-                       loglik = c(tmax_sumeffect_nlme$logLik,
-                                  tmin_sumeffect_nlme$logLik,
-                                  topt_sumeffect_nlme$logLik)
-)
-                       
-kable(summary_nlme)
-
-```
-
-A
-
-### Categorical covariates group analyses:
-
-Following @zuur2009a recommendations, we follow an approach from more complete model to more simple ones. Thus, the model would begin adding both `order`and `feeding_guild` covariates as well as its interaction (`order*feeding_guild`) and after model comparison and selection comparing AICs, we will progressively remove variables that are not informative.
-
-1.  **intercept-only**:
-
-In this case, we assume that grouping var (study) only affects the magnitude but not the relationship between *thermal trait* and *category*, either taxonomical or ecological.
-
-*trait = a_i\_study + beta_order_i + beta_feeding_guild_i + beta_order\*feeding_guild_i*
-
--   `nlme::lme()`
-
-```{r, echo = FALSE}
-# intercept_full_tmin <- lme(Tmin_est ~ 1 + order + feeding_guild + order*feeding_guild,
-#                            weights = ~ weights_tmin,
-#                            random = ~ 1|id,
-#                            data = thetrapest_weighted)
-intercept_order_tmin <- lme(Tmin_est ~ 1 + order,
-                       weights = ~ weights_tmin,
-                       random = ~ 1|id,
-                       data = thetrapest_weighted)
-intercept_order_tmax <- lme(Tmax_est ~ 1 + order,
-                       weights = ~ weights_tmax,
-                       random = ~ 1|id,
-                       data = thetrapest_weighted)
-intercept_order_topt <- lme(Topt_est ~ 1 + order,
-                       weights = ~ weights_topt,
-                       random = ~ 1|id,
-                       data = thetrapest_weighted)
-
-
-
-
-
-intercept_feed_tmin <- lme(Tmin_est ~ 1 + feeding_guild,
-                       weights = ~ weights_tmin,
-                       random = ~ 1|id,
-                       data = thetrapest_weighted)
-# intercept_order_or_feed <- lme(Tmin_est ~ 1 + order + feeding_guild,
-#                                 weights = ~ weights_tmin,
-#                                 random = ~ 1|family,
-#                                 data = thetrapest_weighted)
-
-## see model output 
-# a) order
-## a.1. tmin
-order_levels <- unique(thetrapest_weighted$order)
-n_orders <- length(order_levels)
-summary_nlme_order_tmin <- tibble(parameter = rep("tmin", n_orders),
-                                  estimate = c(intercept_order_tmin$coefficients$fixed),
-                                  uncertainty = c(intercept_order_tmin$varFix[1,1],
-                                                  intercept_order_tmin$varFix[2,2],
-                                                  intercept_order_tmin$varFix[3,3],
-                                                  intercept_order_tmin$varFix[4,4],
-                                                  intercept_order_tmin$varFix[5,5],
-                                                  intercept_order_tmin$varFix[6,6],
-                                                  intercept_order_tmin$varFix[7,7]),
-                                  order = sort(order_levels),
-                                  between_stdy_var = rep(VarCorr(intercept_order_tmin)[1,2], n_orders),
-                                  within_stdy_var =  rep(VarCorr(intercept_order_tmin)[2,2], n_orders),
-                                  loglik = rep(intercept_order_tmin$logLik, n_orders)) %>% 
-  mutate(estimate = if_else(condition = row_number() == 1,
-                            true = estimate,
-                            false = first(estimate)+estimate),
-         std_dev = sqrt(uncertainty)) 
-                       
-## a.2. tmax
-summary_nlme_order_tmax <- tibble(parameter = rep("tmax", n_orders),
-                                  estimate = c(intercept_order_tmax$coefficients$fixed),
-                                  uncertainty = c(intercept_order_tmax$varFix[1,1],
-                                                  intercept_order_tmax$varFix[2,2],
-                                                  intercept_order_tmax$varFix[3,3],
-                                                  intercept_order_tmax$varFix[4,4],
-                                                  intercept_order_tmax$varFix[5,5],
-                                                  intercept_order_tmax$varFix[6,6],
-                                                  intercept_order_tmax$varFix[7,7]),
-                                  order = sort(order_levels),
-                                  between_stdy_var = rep(VarCorr(intercept_order_tmax)[1,2], n_orders),
-                                  within_stdy_var =  rep(VarCorr(intercept_order_tmax)[2,2], n_orders),
-                                  loglik = rep(intercept_order_tmax$logLik, n_orders)) %>% 
-  mutate(estimate = if_else(condition = row_number() == 1,
-                            true = estimate,
-                            false = first(estimate)+estimate),
-         std_dev = sqrt(uncertainty)) 
-
-## a.3. topt
-summary_nlme_order_topt <- tibble(parameter = rep("topt", n_orders),
-                                  estimate = c(intercept_order_topt$coefficients$fixed),
-                                  uncertainty = c(intercept_order_topt$varFix[1,1],
-                                                  intercept_order_topt$varFix[2,2],
-                                                  intercept_order_topt$varFix[3,3],
-                                                  intercept_order_topt$varFix[4,4],
-                                                  intercept_order_topt$varFix[5,5],
-                                                  intercept_order_topt$varFix[6,6],
-                                                  intercept_order_topt$varFix[7,7]),
-                                  order = sort(order_levels),
-                                  between_stdy_var = rep(VarCorr(intercept_order_topt)[1,2], n_orders),
-                                  within_stdy_var =  rep(VarCorr(intercept_order_topt)[2,2], n_orders),
-                                  loglik = rep(intercept_order_topt$logLik, n_orders)) %>% 
-  mutate(estimate = if_else(condition = row_number() == 1,
-                            true = estimate,
-                            false = first(estimate)+estimate),
-         std_dev = sqrt(uncertainty)) 
-
-### ensemble
-summary_nlme_order <- summary_nlme_order_tmin %>% 
-  bind_rows(summary_nlme_order_topt,
-            summary_nlme_order_tmax) %>% 
-  select(parameter, order, estimate, std_dev,between_stdy_var,within_stdy_var,loglik)
-kable(summary_nlme_order)
-```
-
-Error appear when incorporating either addition or interaction among order and feeding guild. Following some StackOverFlow discussions, we will better try with `lme4`packag
-
--   `lme4::lmer()`
-
-```{r, echo = FALSE}
-# intercept_full_tmin <- lmer(Tmin_est  ~ 1 + order + feeding_guild + order*feeding_guild,
-#                            weights = ~ weights_tmin,
-#                            random = ~ 1|id,
-#                            data = thetrapest_weighted)
-# intercept_order_lme4 <- lmer(Tmin_est ~ 1 + order + (1|id),
-#                         weights = weights_tmin,
-#                         data = thetrapest_weighted)
-# intercept_feed <- lme(Tmin_est ~ 1 + feeding_guild,
-#                        weights = ~ weights_tmin,
-#                        random = ~ 1|id,
-#                        lmer()ted)
-# intercept_order_or_feed <- lme(Tmin_est ~ 1 + order + feeding_guild,
-#                                 weights = ~ weights_tmin,
-#                                random = ~ 1|family,
-#                               data = thetrapest_weighted)
-```
-
-Same error than before (id must be \< observations). Problems ... :S:S:S:S
-
-# Pooled simulated data approach
-
-Simulations were obtained assuming normal distribution with mean = sample mean and variance = sampling variance, then applied to each study accounting for their sample size. We obtained then the `IR_data_sim dataset`.
-
-## Summary effect:
-
-### 1. Random-intercept
-
-#### *a) Random-intercept and single fixed:*
-
-`model1 <- nlme(model = r ~briere1(a, temp, Tmin, Tmax), fixed = a + Tmin +  Tmax  ~ 1, random = a + Tmin + Tmax ~ 1|id, start = starts_all_sim_sens, weights = varExp(), data = IR_data_sim_sens, na.action = na.exclude, control = nlmeControl(msMaxIter = 100, pnlstol = 1, msVerbose = TRUE)`
-
-```{r, include=FALSE}
-IR_data_sim_sens <- read_csv("/Users/dario-ssm/Documents/Dario Investigacion/IntRaPest/intrinsic_rates_pests/data/IR_data_complete_sim.csv") %>% 
-  filter(id != 19 &
-         id != 47)
-grid_br1_sim_sens <- expand.grid(list(a=seq(9e-05,2e-04,by=1e-05),
-                                  Tmin=seq(-5,10,by=0.5),
-                                  Tmax=seq(33,48,by=0.5)))
-fitted_br1_sim_sens_brute<- nls2(formula= r ~ briere1(a,temp,Tmin,Tmax),
-                             data = IR_data_sim_sens,
-                             start = grid_br1_sim_sens,
-                             algorithm = "brute-force",
-                             trace = FALSE)
-sum_brute_sim_sens <- summary(fitted_br1_sim_sens_brute)
-starts_all_sim_sens <- sum_brute_sim_sens$parameters[,1]
-nlme_br1_all_varExp_sim_sens <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
-                                 start = starts_all_sim_sens,
-                                 fixed = a+Tmin+Tmax ~1,
-                                 random effects = a+Tmin+Tmax ~ 1| id
-                                 #random =a+Tmin+Tmax~1|id,
-                                 data = IR_data_sim_sens,
-                                 weights = varExp(),
-                                 na.action=na.exclude,
-                                 control = nlmeControl(pnlsTol = 1,
-                                                       msMaxIter = 100,
-                                                       msVerbose = TRUE))#to avoid error of singularity in backsolve at level 0; block 1
-sum_nlme_all_sim_sens_varExp <- summary(nlme_br1_all_varExp_sim_sens)
-AIC_varExp_sim_without <- AIC(nlme_br1_all_varExp_sim_sens)
-loglik_varExp_sim_without <- logLik(nlme_br1_all_varExp_sim_sens)[1]
-params_varExp_sim_without <- sum_nlme_all_sim_sens_varExp$tTable[,1]
-varExp_coef_sim_without <- sum_nlme_all_sim_sens_varExp$modelStruct$varStruct[1]
-overview_nlme_all_varExp_sim_without <- tibble(a = params_varExp_sim_without[1],
-                                               se_a = sum_nlme_all_sim_sens_varExp$tTable[1,2],
-                                               Tmin = params_varExp_sim_without[2],
-                                               se_Tmin = sum_nlme_all_sim_sens_varExp$tTable[2,2],
-                                               Tmax = params_varExp_sim_without[3],
-                                               se_Tmax = sum_nlme_all_sim_sens_varExp$tTable[3,2],
-                                               Topt =  Topt(Tmin = params_varExp_sim_without[2],
-                                                            Tmax = params_varExp_sim_without[3],
-                                                            m=2),
-                                               se_Topt = "to be completed",### complete it with Topt_se deltaMethod
-                                               varExp_coef = varExp_coef_sim_without,
-                                               AIC = AIC_varExp_sim_without,
-                                               log_likelihood = loglik_varExp_sim_without)
-
-kable(overview_nlme_all_varExp_sim_without)
-```
+-   **a) Order**
 
 ```{r}
-mod1 <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
-                                 start = starts_all_sim_sens,
-                                 fixed = a+Tmin+Tmax ~1,
-                                 random =a+Tmin+Tmax~1|id,
-                                 data = IR_data_sim_sens,
-                                 weights = varExp(),
-                                 na.action=na.exclude,
-                                 control = nlmeControl(pnlsTol = 1,
-                                                       msMaxIter = 100,
-                                                       msVerbose = TRUE))
-mod1
+boxplot_traits_ord<- ggplot(data=thetrapest_order, aes(x=order))+
+  geom_boxplot(aes(y=tmin),
+               fill= "turquoise4",
+               color = "lightgrey")+
+  geom_boxplot(aes(y=tmax),
+               fill="indianred3",
+               color = "lightgrey")+
+  labs(title = "Thermal traits across taxa",
+       x = "Order", 
+       y = "Thermal traits (ºC)")+
+  ggthemes::theme_few()+
+  theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
+  theme(legend.position = "none")
+boxplot_traits_ord
+violin_traits_ord <- ggplot(data=thetrapest_order, aes(x=order))+
+  geom_violin(aes(y=tmin),
+              fill= "turquoise4",
+              color = "lightgrey")+
+  geom_violin(aes(y=tmax),
+              fill="indianred3",
+              color = "lightgrey")+
+  labs(title = "Thermal traits across taxa",
+       x = "Order", 
+       y = "Thermal traits (ºC)")+
+  ggthemes::theme_few()+
+  theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
+  theme(legend.position = "none")
+grid_hetero_tmin <- plot_grid(boxplot_traits_ord,violin_traits_ord, labels = "AUTO")
+grid_hetero_tmin
+
 ```
 
-#### *b) Random-intercept and fixed for temperature?*
+-   **b) Feeding guild**
 
 ```{r}
-starts_new <- c(starts_all_sim_sens[1],
-                starts_all_sim_sens[1],
-                starts_all_sim_sens[2],
-                starts_all_sim_sens[2],
-                starts_all_sim_sens[3],
-                starts_all_sim_sens[3])
-mod2 <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
-                                 start = starts_new,
-                                 fixed = a+Tmin+Tmax ~ temp,
-                                 random = a+Tmin+Tmax ~ 1|id,
-                                 data = IR_data_sim_sens,
-                                 weights = varExp(),
-                                 na.action=na.exclude,
-                                 control = nlmeControl(pnlsTol = 10,
-                                                       msMaxIter = 100,
-                                                       msVerbose = TRUE))
+boxplot_traits_fg <- ggplot(data=thetrapest_fg, aes(x=feeding_guild))+
+  geom_boxplot(aes(y=tmin),
+               fill= "turquoise4",
+               color = "lightgrey")+
+  geom_boxplot(aes(y=tmax),
+               fill="indianred3",
+               color = "lightgrey")+
+  labs(title = "Thermal traits across feeding guilds",
+       x = "Feeding guild", 
+       y = "Thermal traits (ºC)")+
+  ggthemes::theme_few()+
+  theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
+  theme(legend.position = "none")
+violin_traits_fg <- ggplot(data=thetrapest_fg, aes(x=feeding_guild))+
+  geom_violin(aes(y=tmin),
+              fill= "turquoise4",
+              color = "lightgrey")+
+  geom_violin(aes(y=tmax),
+              fill="indianred3",
+              color = "lightgrey")+
+  labs(title = "Thermal traits across feeding guilds",
+       x = "Feeding guild", 
+       y = "Thermal traits (ºC)")+
+  ggthemes::theme_few()+
+  theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
+  theme(legend.position = "none")
+plot_hetero_fg <- plot_grid(boxplot_traits_fg,violin_traits_fg)
+plot_hetero_fg
 ```
 
-See error for confounding factors here: <https://stackoverflow.com/questions/50505290/singularity-in-backsolve-at-level-0-block-1-in-lme-model>
-
-### 2. Random-intercept-and-slope
-
-#### *a) Random-intercept-and-slope, single fixed:*
+#### Traits variability along latitude
 
 ```{r}
-mod3 <- nlme(model= r ~ briere1(a,temp = temp,Tmin,Tmax),
-                                 start = starts_all_sim_sens,
-                                 fixed = a+Tmin+Tmax ~ 1,
-                                 random =a+Tmin+Tmax ~ 1 + 1|id,
-                                 data = IR_data_sim_sens,
-                                 weights = varExp(),
-                                 na.action=na.exclude,
-                                 control = nlmeControl(pnlsTol = 1,
-                                                       msMaxIter = 100,
-                                                       msVerbose = TRUE))#
-mod3
+# ~~~~~~~~ (3) traits variability ~ lat ~----
+all_lms_combined <- ggplot(thetrapest)+
+  geom_point(aes(x=abs(lat),y=tmin),color="skyblue4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=tmin),color="skyblue4",fill="skyblue2", method = "lm")+
+  geom_point(aes(x=abs(lat),y=tmax),color="red4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=tmax),color="red4",fill="red3", method = "lm")+
+  geom_point(aes(x=abs(lat),y=topt),color="mediumorchid4",alpha=0.02, position = position_jitter(width = 3))+
+  geom_smooth(aes(x=abs(lat),y=topt),color="mediumorchid4",fill="mediumorchid3", method = "lm", alpha = 0.01)+
+  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (ºC)")+
+  theme_few()
+all_lms_combined  
+breadth_order_lat <- ggplot(data = thetrapest_order, aes(abs(lat), thermal_breadth))+
+  geom_point(aes(color = order), alpha =0.1)+
+  facet_wrap(.~order)+
+  geom_smooth(aes(color = order, fill = order), method = "lm")+
+  theme_few()+
+  scale_color_brewer(palette = "Set2")+
+  scale_fill_brewer(palette = "Set2")+
+  theme(legend.position = "none")+
+  labs(x = "Absolute Latitude (º)",
+       y = "Thermal Breadth (ºT)")
+breadth_order_lat
+
 ```
+
+#### traits variability \~ 1 (no covariate)
+
+```{r}
+violin_traits_all <- ggplot(data=thetrapest,aes(x=1))+
+  geom_violin(aes(y=tmin),
+              fill= "turquoise4",
+              color = "lightgrey")+
+  geom_violin(aes(y=tmax),
+              fill="indianred3",
+              color = "lightgrey")+
+  labs(title = "Thermal traits across taxa",
+       x = element_blank(),
+       y = "Thermal traits (ºC)")+
+  ggthemes::theme_few()+
+  theme(axis.text.x = element_blank())+
+  theme(legend.position = "none")
+violin_traits_all
+
+```
+
+### Quantitative Analysis of heterogeneity
+
+We aim to evaluate whether lower and upper thermal traits' variabilities differ. First we perform a F-test, similarly to @herrando-pérez2020
+
+```{r}
+# ~~~~~~~~  (1) F-test (see Herrando-Pérez, 2019) ----
+variances_tmin <- thetrapest %>% 
+  select(tmin, vi, id) %>% 
+  mutate(parameter = rep("tmin")) %>% 
+  rename(estimate = tmin)
+variances_tmax <- thetrapest %>% 
+  select(tmax, vi, id) %>% 
+  mutate(parameter = rep("tmax")) %>% 
+  rename(estimate = tmax)
+variances_traits = variances_tmin %>% 
+  bind_rows(variances_tmax)
+#test variance differences
+var.test(estimate ~ parameter, variances_traits, 
+         alternative = "greater") #que tmin tiene más varianza que tmax
+
+```
+
+We confirm that variance of lower temperature threshold is higher than upper temperature threshold (F = 1.5791; *p* \< 0.001).
+
+Now we perform a Levene test of variance homogeneity as in @hoffmann2013, which confirm the previous result (F = 5.224, *p* = 0.0223).
+
+```{r}
+# ~~~~~~~~  (2) Levene's test (see Hoffmann, 2013) ----
+leveneTest(y = estimate ~ parameter, data = variances_traits) # also 
+
+```
+
+Next, we use the meta-analysis *true* between-studies heterogeneity (i.e. 𝜏). In this case, we standardise the value by dividing the 𝜏 by the estimate.
+
+```{r}
+# ~~~~~~~~ (3) lme modelling output ----
+lme_4vars <- lme(tmin ~ 1,
+                 random = ~1|id,
+                 weights = varFixed(~vi),
+                 control = lmeControl(sigma = 1),
+                 data = thetrapest)
+lme_4vars2 <- lme(tmax ~ 1,
+                 random = ~1|id,
+                 weights = varFixed(~vi),
+                 control = lmeControl(sigma = 1),
+                 data = thetrapest)
+
+
+tau_rel_tmin <- as.numeric(VarCorr(lme_4vars)[1,2])/lme_4vars$coefficients$fixed
+tau_rel_tmax <- as.numeric(VarCorr(lme_4vars2)[1,2])/lme_4vars2$coefficients$fixed
+# similar...
+```
+
+And it confirms again that the effect sizes variability is higher for *T*~min~ than for *T*~max.~
+
+# References
