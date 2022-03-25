@@ -1,11 +1,11 @@
 # SCRIPT INFO --------------------
-#     Authors: Dar?o San Segundo Molina, Sara Vill?n P?rez, Ignacio Morales Castilla
-#     Title: trait inferences: Variability assessment
-#     Aim: explore traits variability to infer ecological patterns
+#     Authors: Dario San Segundo Molina, Sara Villen Perez, Ignacio Morales Castilla
+#     Title: trait inferences meta-analyses
+#     Aim: explore traits variability
 #     Date: March 2022
 #
-# Side A (from Dimitropoulo's method)
-#_________________________ ####
+# 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ####
 
 # 1. Load Datasets ----
 rm(list=ls())
@@ -74,7 +74,7 @@ simulated_intrapest <- inner_join(intrapest_rep,sum_intrapest) %>%
   as_tibble() %>% 
   print()
 
-# ~~~~ c) Equations (Brière-1)  --------------------------------------------
+# ~~~~ c) Equations (Briere-1)  --------------------------------------------
 
 briere1 <- function(a, temp, Tmin, Tmax){
   a*temp*(temp-Tmin)*(Tmax-temp)^(1/2)
@@ -266,7 +266,7 @@ plot_taus <- ggplot(relative_taus, aes(x = parameter, y = rel_tau))+
 
 # 3. Statistical Tests ----
 # ~~~~ a) thermal traits simulated ----
-# ~~~~~~~~  (1) F-test (see Herrando-Pérez, 2019) ----
+# ~~~~~~~~  (1) F-test (see Herrando-Perez, 2019) ----
 variances_tmin <- thermal_traits_clean %>% 
   select(tmin, vi, id) %>% 
   mutate(parameter = rep("tmin")) %>% 
