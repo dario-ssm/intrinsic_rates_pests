@@ -159,15 +159,13 @@ violin_traits_fg
 ggsave("violin_traits_fg.png", dpi = 300, width = 20, height = 20, units = "cm")
 
 # ~~~~~~~~ (3) traits variability ~ lat ~----
-all_lms_combined <- ggplot(thermal_traits_clean)+
-  geom_point(aes(x=abs(lat),y=tmin),color="skyblue4",alpha=0.1, position = position_jitter(width = 3))+
+all_lms_combined <- ggplot(thermal_traits_complete)+
+  geom_point(aes(x=abs(lat),y=tmin),color="skyblue4",alpha=0.032)+
   geom_smooth(aes(x=abs(lat),y=tmin),color="skyblue4",fill="skyblue2", method = "lm")+
-  geom_point(aes(x=abs(lat),y=tmax),color="red4",alpha=0.1, position = position_jitter(width = 3))+
+  geom_point(aes(x=abs(lat),y=tmax),color="red4",alpha=0.032)+
   geom_smooth(aes(x=abs(lat),y=tmax),color="red4",fill="red3", method = "lm")+
-  geom_point(aes(x=abs(lat),y=topt),color="mediumorchid4",alpha=0.02, position = position_jitter(width = 3))+
-  geom_smooth(aes(x=abs(lat),y=topt),color="mediumorchid4",fill="mediumorchid3", method = "lm", alpha = 0.01)+
   labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (ºC)")+
-  theme_few()
+  theme_classic()
 all_lms_combined  
 ggsave("lms_traits_lat.png", dpi = 300, width = 10, height = 20, units = "cm")
 

@@ -208,12 +208,19 @@ save(thermal_breadth_extremes, file = "thermal_breadth_extremes.RData")
 #load(thermal_breadth.RData)
 #load(thermal_breadth_extremes.RData)
 
-thermal_traits_complete <- ir_dataset_clean_se %>% 
+thermal_traits_complete <- thermal_traits_complete %>% 
   bind_cols(thermal_breadth, thermal_breadth_extremes) %>% 
   mutate(tsm = tmax-topt,
          therm_range = tmax-tmin)
 write_csv(thermal_traits_complete, "thermal_traits_complete.csv")
-
+thermal_traits_order <- thermal_traits_complete %>% 
+  filter(order == "Acari" |
+           order == "Hemiptera" |
+           order == "Lepidoptera")
+thermal_traits_fg <- thermal_traits_complete %>% 
+  filter(feeding_guild == "borer" |
+           feeding_guild == "chewer" |
+           feeding_guild == "sucker")
 # ~~~~ b) model assumptions (N, homosced.) ----
 # thermal_traits_complete <-read_csv("thermal_traits_complete.csv")
 ## tmin

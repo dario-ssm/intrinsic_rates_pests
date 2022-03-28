@@ -6,7 +6,9 @@
 #
 # 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ####
-
+library(tidyverse)
+library(emmeans)
+library(nlme)
 # Meta-analysis models ----
 
 #tampoco es normal :/
@@ -125,7 +127,7 @@ intervals_tmin_lat_slope <- intervals(tmin_lat_slope, which = "fixed")
 intervals_tmin_lat_slope <- as.data.frame(intervals_tmin_lat_slope$fixed) #probably give this as "slope per standard unit"
 tmin_lat_slope_output <- intervals_tmin_lat_slope %>% 
   select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_tmin, estimate = .x))) # and this for Tmin at lat=0º
+  mutate(across(everything(), ~ backtransf(trans_var = bn_tmin, estimate = .x))) # and this for Tmin at lat=0?
 # # ~~~~ iii) ~ order  ---- 
 ## random slope & intercept
 tmin_order <- lme(tmin ~ as_factor(order),
@@ -203,7 +205,7 @@ intervals_topt_lat_slope <- intervals(topt_lat_slope, which = "fixed")
 intervals_topt_lat_slope <- as.data.frame(intervals_topt_lat_slope$fixed) #probably give this as "slope per standard unit"
 topt_lat_slope_output <- intervals_topt_lat_slope %>% 
   select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_topt, estimate = .x))) # and this for topt at lat=0º
+  mutate(across(everything(), ~ backtransf(trans_var = bn_topt, estimate = .x))) # and this for topt at lat=0?
 # ~~~~ iii) ~ order  ---- 
 ## random slope & intercept
 topt_order <- lme(topt ~ as_factor(order),
@@ -281,7 +283,7 @@ intervals_thermal_breadth_lat_slope <- intervals(thermal_breadth_lat_slope, whic
 intervals_thermal_breadth_lat_slope <- as.data.frame(intervals_thermal_breadth_lat_slope$fixed) #probably give this as "slope per standard unit"
 thermal_breadth_lat_slope_output <- intervals_thermal_breadth_lat_slope %>% 
   select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_thermal_breadth, estimate = .x))) # and this for thermal_breadth at lat=0º
+  mutate(across(everything(), ~ backtransf(trans_var = bn_thermal_breadth, estimate = .x))) # and this for thermal_breadth at lat=0?
 # ~~~~ iii) ~ order  ---- 
 ## random slope & intercept
 thermal_breadth_order <- lme(thermal_breadth ~ as_factor(order),
@@ -360,7 +362,7 @@ intervals_tsm_lat_slope <- intervals(tsm_lat_slope, which = "fixed")
 intervals_tsm_lat_slope <- as.data.frame(intervals_tsm_lat_slope$fixed) #probably give this as "slope per standard unit"
 tsm_lat_slope_output <- intervals_tsm_lat_slope %>% 
   select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_tsm, estimate = .x))) # and this for tsm at lat=0º
+  mutate(across(everything(), ~ backtransf(trans_var = bn_tsm, estimate = .x))) # and this for tsm at lat=0?
 # ~~~~ iii) ~ order  ---- 
 ## random slope & intercept
 tsm_order <- lme(tsm ~ as_factor(order),
@@ -439,7 +441,7 @@ intervals_therm_range_lat_slope <- intervals(therm_range_lat_slope, which = "fix
 intervals_therm_range_lat_slope <- as.data.frame(intervals_therm_range_lat_slope$fixed) #probably give this as "slope per standard unit"
 therm_range_lat_slope_output <- intervals_therm_range_lat_slope %>% 
   select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_therm_range, estimate = .x))) # and this for therm_range at lat=0º
+  mutate(across(everything(), ~ backtransf(trans_var = bn_therm_range, estimate = .x))) # and this for therm_range at lat=0?
 # ~~~~ iii) ~ order  ---- 
 ## random slope & intercept
 therm_range_order <- lme(therm_range ~ as_factor(order),

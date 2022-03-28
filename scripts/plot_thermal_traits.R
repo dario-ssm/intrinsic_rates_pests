@@ -12,6 +12,8 @@ library(magrittr)
 library(wesanderson)
 library(viridis)
 library(hrbrthemes)
+library(networkD3)
+
 # 1. Calculate i-th study uncertainties ----
 ## note that no transformation is required here since these intervals are being used
 ## as an approximation for forest plotting
@@ -83,7 +85,7 @@ forest_tmax_sum <- ggplot(data = uncertainty_i, aes(x = tmax, y = fct_reorder(as
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank()
         )+
-  labs(x = "Maximum Temperature (ºC)",
+  labs(x = "Maximum Temperature (ÂºC)",
        y = "")
 forest_tmax_sum
 ggsave(filename = "forest_tmax_sumeff.png", width = 20, height = 30, dpi = 300, units = "cm")
@@ -110,7 +112,7 @@ forest_tmin_sum <- ggplot(data = uncertainty_i, aes(x = tmin, y = fct_reorder(as
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank()
   )+
-  labs(x = "Minimum Temperature (ºC)",
+  labs(x = "Minimum Temperature (ÂºC)",
        y = "")
 forest_tmin_sum
 ggsave(filename = "forest_tmin_sumeff.png", width = 20, height = 30, dpi = 300, units = "cm")
@@ -138,7 +140,7 @@ forest_topt_sum <- ggplot(data = uncertainty_i, aes(x = topt, y = fct_reorder(as
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank()
   )+
-  labs(x = "Optimal Temperature (ºC)",
+  labs(x = "Optimal Temperature (ÂºC)",
        y = "")
 forest_topt_sum
 ggsave(filename = "forest_topt_sumeff.png", width = 20, height = 30, dpi = 300, units = "cm")
@@ -166,7 +168,7 @@ forest_thermal_breadth_sum <- ggplot(data = uncertainty_i, aes(x = thermal_bread
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank()
   )+
-  labs(x = "Thermal Breadth (ºC)",
+  labs(x = "Thermal Breadth (?C)",
        y = "")
 forest_thermal_breadth_sum
 # ~~ d) thermal safety margin  ----
@@ -192,7 +194,7 @@ forest_tsm_sum <- ggplot(data = uncertainty_i, aes(x = tsm, y = fct_reorder(as_f
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank()
   )+
-  labs(x = "Thermal Safety Margin (ºC)",
+  labs(x = "Thermal Safety Margin (?C)",
        y = "")
 forest_tsm_sum
 
@@ -222,10 +224,10 @@ forest_traits_order <- ggplot(data = traits_sumeff_order, aes(x = pred, y = orde
                   position = position_jitter(height = 0.02))+
   scale_color_manual(values = wes1[c(5,1,3)])+
   theme_few()+
-  labs(x = "Temperature (ºC)",
+  labs(x = "Temperature (ÂºC)",
        y = "Order")
 forest_traits_order
-ggsave(filename = "forest_traits_order.png", width = 20, height = 30, dpi = 300, units = "cm")
+ggsave(filename = "forest_traits_order.png", width = 20, height = 16, dpi = 300, units = "cm")
 
 # ~~ b) thermal_breadth  ----
 ## add summary effect and uncertainty
@@ -241,10 +243,10 @@ forest_thermal_breadth_order <- ggplot(data = sum_eff_thermal_breadth_order,
                   size = 1.12)+
   scale_color_manual(values = wes2[c(1,2,3)])+
   theme_few()+
-  labs(x = "Thermal Breadth (?? ºC)",
+  labs(x = "Thermal Breadth (Î” ÂºC)",
        y = "Order")
 forest_thermal_breadth_order
-ggsave(filename = "forest_thermal_breadth_order.png", width = 20, height = 30, dpi = 300, units = "cm")
+ggsave(filename = "forest_thermal_breadth_order.png",  width = 20, height = 16, dpi = 300, units = "cm")
 
 # ~~ c) thermal safety margin  ----
 ## add summary effect and uncertainty
@@ -260,10 +262,11 @@ forest_tsm_order <- ggplot(data = sum_eff_tsm_order,
                   size = 1.12)+
   scale_color_manual(values = wes3[c(1,2,3)])+
   theme_few()+
-  labs(x = "Thermal Safety Margin (?? ºC)",
+  labs(x = "Thermal Safety Margin (Î” ÂºC)",
        y = "Order")
 forest_tsm_order
-ggsave(filename = "forest_tsm_order.png", width = 20, height = 30, dpi = 300, units = "cm")
+ggsave(filename = "forest_tsm_order.png",  width = 20, height = 16, dpi = 300, units = "cm")
+
 
 # ~~ d) thermal range  ----
 ## add summary effect and uncertainty
@@ -279,10 +282,10 @@ forest_therm_range_order <- ggplot(data = sum_eff_therm_range_order,
                   size = 1.12)+
   scale_color_manual(values = wes4[c(1,4,5)])+
   theme_few()+
-  labs(x = "Thermal Range (?? ºC)",
+  labs(x = "Thermal Range (Î” ÂºC)",
        y = "Order")
 forest_therm_range_order
-ggsave(filename = "forest_therm_range_order.png", width = 20, height = 30, dpi = 300, units = "cm")
+ggsave(filename = "forest_therm_range_order.png", width = 20, height = 16, dpi = 300, units = "cm")
 
 # 3. Forest plots feeding_guild  ----
 # ~~ a) thermal points  ----
@@ -307,10 +310,10 @@ forest_traits_feeding_guild <- ggplot(data = traits_sumeff_feeding_guild, aes(x 
                   position = position_jitter(height = 0.02))+
   scale_color_manual(values = wes1[c(5,1,3)])+
   theme_few()+
-  labs(x = "Temperature (ºC)",
-       y = "feeding_guild")
+  labs(x = "Temperature (ÂºC)",
+       y = "Feeding guild")
 forest_traits_feeding_guild
-ggsave(filename = "forest_traits_feeding_guild.png", width = 20, height = 30, dpi = 300, units = "cm")
+ggsave(filename = "forest_traits_feeding_guild.png", width = 16, height = 16, dpi = 300, units = "cm")
 
 # ~~ b) thermal_breadth  ----
 ## add summary effect and uncertainty
@@ -325,10 +328,11 @@ forest_thermal_breadth_feeding_guild <- ggplot(data = sum_eff_thermal_breadth_fe
                   size = 1.12)+
   scale_color_manual(values = wes2[c(1,2,3)])+
   theme_few()+
-  labs(x = "Thermal Breadth (?? ºC)",
-       y = "feeding_guild")
+  labs(x = "Thermal Breadth (Î” ÂºC)",
+       y = "Feeding guild")+
+  theme(legend.position = "none")
 forest_thermal_breadth_feeding_guild
-ggsave(filename = "forest_thermal_breadth_feeding_guild.png", width = 20, height = 30, dpi = 300, units = "cm")
+ggsave(filename = "forest_thermal_breadth_feeding_guild.png", width = 16, height = 16, dpi = 300, units = "cm")
 
 # ~~ c) thermal safety margin  ----
 ## add summary effect and uncertainty
@@ -343,10 +347,11 @@ forest_tsm_feeding_guild <- ggplot(data = sum_eff_tsm_feeding_guild,
                   size = 1.12)+
   scale_color_manual(values = wes3[c(1,2,3)])+
   theme_few()+
-  labs(x = "Thermal Safety Margin (?? ºC)",
-       y = "feeding_guild")
+  labs(x = "Thermal Safety Margin (Î” ÂºC)",
+       y = "Feeding guild")+
+  theme(legend.position = "none")
 forest_tsm_feeding_guild
-ggsave(filename = "forest_tsm_feeding_guild.png", width = 20, height = 30, dpi = 300, units = "cm")
+ggsave(filename = "forest_tsm_feeding_guild.png", width = 16, height = 16, dpi = 300, units = "cm")
 
 # ~~ d) thermal range  ----
 ## add summary effect and uncertainty
@@ -361,13 +366,13 @@ forest_therm_range_feeding_guild <- ggplot(data = sum_eff_therm_range_feeding_gu
                   size = 1.12)+
   scale_color_manual(values = wes4[c(1,4,5)])+
   theme_few()+
-  labs(x = "Thermal Range (?? ºC)",
-       y = "feeding_guild")
+  labs(x = "Thermal Range (Î”ÂºC)",
+       y = "Feeding guild")+
+  theme(legend.position = "none")
 forest_therm_range_feeding_guild
-ggsave(filename = "forest_therm_range_feeding_guild.png", width = 20, height = 30, dpi = 300, units = "cm")
+ggsave(filename = "forest_therm_range_feeding_guild.png", width = 16, height = 16, dpi = 300, units = "cm")
 
 # ~~ e) Relationship order - feeding guild ----
-library(networkD3)
 # Now we have 2 data frames: a 'links' data frame with 3 columns (from, to, value), and a 'nodes' data frame that gives the name of each node.
 structures <- thermal_traits_complete %>%
   select(id, order, feeding_guild, genus, species) %>% 
@@ -393,11 +398,6 @@ forceNetwork(Links = links,
              zoom = 100,
              opacity = 1, opacityNoHover = 0.8)
 
-
-# Thus we can plot it
-p <- sankeyNetwork(Links = Energy$links, Nodes = Energy$nodes, Source = "source",
-                   Target = "target", Value = "value", NodeID = "name",
-                   units = "TWh", fontSize = 12, nodeWidth = 30)
 # save the widget
 # library(htmlwidgets)
 # saveWidget(p, file=paste0( getwd(), "/HtmlWidget/sankeyEnergy.html"))
@@ -433,9 +433,6 @@ forceNetwork(Links = links,
              fontSize = 14, bounded = TRUE) %>% 
   saveNetwork(file = 'Network1.html')
 
-#
-
-
 # 4. Feeding guild composition  ----
 # ~~ a) barplots  ----
 composition <- suckers_composition %>% 
@@ -451,31 +448,34 @@ ggsave("composition_bar.png", width = 30, height = 30, units = "cm")
 
 
 
- #_ _ 3.1 Thermal traits across latitude  ----
-## tmin
-Tmin_to_lat_plot <- ggplot(thermal_traits_complete,aes(abs(lat),tmin))+
+# 5. Thermal traits across latitude  ----
+## ~~ a) thermal points ----
+Tmin_to_lat_plot <- ggplot(thermal_traits_complete,
+                           aes(abs(lat),tmin))+
   geom_point(alpha=0.032,
              color="skyblue4")+
   geom_smooth(method="lm",color="skyblue4",fill="skyblue2")+
   labs(title= "Tmin ~ latitude",
        x= "latitude",
        y= "Tmin")+
-  theme_classic()
-Tmin_to_lat_plot 
+  theme_few()
+tmin_to_lat_plot 
 
-tmin_to_lat_order_plot <- ggplot(thermal_traits_complete,aes(abs(lat),tmin))+
+tmin_to_lat_order_plot <- ggplot(thermal_traits_order,aes(abs(lat),tmin))+
   geom_point(alpha=0.032,
-             color="skyblue4",)+
-  geom_smooth(method="lm",color="skyblue4",fill="skyblue2")+
+             aes(color = order))+
+  geom_smooth(method="lm", aes(color = order, fill=order))+
+  scale_color_manual(values = wes2[c(2,3,5)])+
+  scale_fill_manual(values = wes2[c(2,3,5)])+
   labs(title= "Tmin ~ latitude",
        x= "latitude",
        y= "Tmin")+
   facet_wrap(.~order)+
-  theme_light()
+  theme_few()
 tmin_to_lat_order_plot
 
 ## tmax
-Tmax_to_lat_plot <- ggplot(thermal_traits_complete,aes(abs(lat),tmax))+
+tmax_to_lat_plot <- ggplot(thermal_traits_complete,aes(abs(lat),tmax))+
   geom_point(alpha=0.032,
              color="red4")+
   geom_smooth(method="lm",color="red4",fill="red3")+
@@ -483,20 +483,22 @@ Tmax_to_lat_plot <- ggplot(thermal_traits_complete,aes(abs(lat),tmax))+
        x= "latitude",
        y= "Tmax")+
   theme_classic()
-Tmax_to_lat_plot
-tmax_to_lat_order_plot <- ggplot(thermal_traits_complete,aes(abs(lat),tmax))+
+tmax_to_lat_plot
+tmax_to_lat_order_plot <- ggplot(thermal_traits_order,aes(abs(lat),tmax))+
   geom_point(alpha=0.032,
-             color="red4")+
-  geom_smooth(method="lm",color="red4",fill="red3")+
-  labs(title= "Tmax ~ latitude",
+             aes(color = order))+
+  geom_smooth(method="lm", aes(color = order, fill=order))+
+  scale_color_manual(values = wes2[c(2,3,5)])+
+  scale_fill_manual(values = wes2[c(2,3,5)])+
+  labs(title= "tmax ~ latitude",
        x= "latitude",
-       y= "Tmax")+
+       y= "tmax")+
   facet_wrap(.~order)+
-  theme_light()
+  theme_few()
 tmax_to_lat_order_plot
 
 ## topt
-Topt_to_lat_plot <- ggplot(thermal_traits_complete,aes(abs(lat),topt))+
+topt_to_lat_plot <- ggplot(thermal_traits_complete,aes(abs(lat),topt))+
   geom_point(alpha=0.032,
              color="mediumorchid4")+ 
   geom_smooth(method="lm",color="mediumorchid4",fill="mediumorchid3")+
@@ -504,7 +506,7 @@ Topt_to_lat_plot <- ggplot(thermal_traits_complete,aes(abs(lat),topt))+
        x= "latitude",
        y= "Topt")+
   theme_classic()
-Topt_to_lat_plot
+topt_to_lat_plot
 topt_to_lat_order_plot <- ggplot(thermal_traits_complete,aes(abs(lat),topt))+
   geom_point(alpha=0.032,
              color="mediumorchid4")+
@@ -516,27 +518,86 @@ topt_to_lat_order_plot <- ggplot(thermal_traits_complete,aes(abs(lat),topt))+
   theme_light()
 topt_to_lat_order_plot
 
-lms_plot_grid <- plot_grid(Tmin_to_lat_plot,Topt_to_lat_plot,Tmax_to_lat_plot,
-                           nrow = 1,labels = c("A","B","C"))
+lms_plot_grid <- cowplot::plot_grid(Tmin_to_lat_plot,Tmax_to_lat_plot,
+                           nrow = 1,labels = c("A","B"))
 lms_plot_grid
-all_loess_combined <- ggplot(ir_dataset_clean_se)+
+ggsave("tmin_tmax_lat_plotgrid.png", width = 24, height = 16, units = "cm", dpi = 300)
+
+all_loess_combined <- ggplot(thermal_traits_complete)+
   geom_point(aes(x=abs(lat),y=tmin),color="skyblue4",alpha=0.032)+
   geom_smooth(aes(x=abs(lat),y=tmin),color="skyblue4",fill="skyblue2")+
   geom_point(aes(x=abs(lat),y=tmax),color="red4",alpha=0.032)+
   geom_smooth(aes(x=abs(lat),y=tmax),color="red4",fill="red3")+
   geom_point(aes(x=abs(lat),y=topt),color="mediumorchid4",alpha=0.032)+
   geom_smooth(aes(x=abs(lat),y=topt),color="mediumorchid4",fill="mediumorchid3")+
-  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (?C)")+
+  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (ÂºC)")+
   theme_classic()
 all_loess_combined  
 
-all_lms_combined <- ggplot(ir_dataset_clean_se)+
+all_lms_combined <- ggplot(thermal_traits_complete)+
   geom_point(aes(x=abs(lat),y=tmin),color="skyblue4",alpha=0.032)+
   geom_smooth(aes(x=abs(lat),y=tmin),color="skyblue4",fill="skyblue2", method = "lm")+
   geom_point(aes(x=abs(lat),y=tmax),color="red4",alpha=0.032)+
   geom_smooth(aes(x=abs(lat),y=tmax),color="red4",fill="red3", method = "lm")+
-  geom_point(aes(x=abs(lat),y=topt),color="mediumorchid4",alpha=0.032)+
-  geom_smooth(aes(x=abs(lat),y=topt),color="mediumorchid4",fill="mediumorchid3", method = "lm")+
-  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (?C)")+
+  labs(title= "Thermal traits ~ latitude",x= "latitude",y= "Thermal traits (ÂºC)")+
   theme_classic()
 all_lms_combined  
+ggsave("tmin_tmax_lat_unique.png", width = 16, height = 16, units = "cm")
+
+## ~~ b) thermal breadth ----
+breadth_lat <- ggplot(data = thermal_traits_complete, aes(abs(lat), thermal_breadth))+
+  geom_point(color = wes2[5], alpha = 0.1)+
+  geom_smooth(method = "lm", color = wes2[3], fill = wes2[3])+
+  labs(x = "Absolute Latitude (Âº)",
+       y = "Thermal Breadth (ÂºT)")+
+  theme_few()
+breadth_lat
+ggsave(filename = "breadth_lat.png", width = 30, height = 20, dpi = 300, units = "cm")
+
+breadth_order_lat <- ggplot(data = thermal_traits_order, aes(abs(lat), thermal_breadth))+
+  geom_point(aes(color = order), alpha =0.1)+
+  facet_wrap(.~order)+
+  geom_smooth(aes(color = order, fill = order), method = "lm")+
+  theme_few()+
+  scale_color_brewer(palette = "Set2")+
+  scale_fill_brewer(palette = "Set2")+
+  theme(legend.position = "none")+
+  labs(x = "Absolute Latitude (Âº)",
+       y = "Thermal Breadth (ÂºT)")
+breadth_order_lat
+ggsave(filename = "breadth_order_lat.png", width = 30, height = 20, dpi = 300, units = "cm")
+
+# 6. Plot traits variability differences  ----
+# ~~ a) order ----
+boxplot_traits_ord<- ggplot(data=thermal_traits_order, aes(x=order))+
+  geom_boxplot(aes(y=tmin),
+               fill= wes4[5],
+               color = "lightgrey")+
+  geom_boxplot(aes(y=tmax),
+               fill= wes2[4],
+               color = "lightgrey")+
+  labs(title = "Thermal traits across taxa",
+       x = "Order", 
+       y = "Thermal traits (ÂºC)")+
+  ggthemes::theme_few()+
+  theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
+  theme(legend.position = "none")
+boxplot_traits_ord
+ggsave("boxplot_traits_ord.png", width = 30, height = 30, units = "cm")
+
+# ~~ b) feeding guild ----
+boxplot_traits_fg <- ggplot(data=thermal_traits_fg, aes(x=feeding_guild))+
+  geom_boxplot(aes(y=tmin),
+               fill= wes2[5],
+               color = "lightgrey")+
+  geom_boxplot(aes(y=tmax),
+               fill= wes2[4],
+               color = "lightgrey")+
+  labs(title = "Thermal traits across taxa",
+       x = "Feeding guild", 
+       y = "Thermal traits (ÂºC)")+
+  ggthemes::theme_few()+
+  theme(axis.text.x = element_text(angle=45,vjust = 1,hjust=1))+
+  theme(legend.position = "none")
+boxplot_traits_fg
+ggsave("boxplot_traits_fg.png", width = 30, height = 30, units = "cm")
