@@ -9,6 +9,14 @@
 library(tidyverse)
 library(emmeans)
 library(nlme)
+thermal_traits_trans <- read_csv("thermal_traits_trans.csv")
+thermal_traits_trans_order <- read_csv("thermal_traits_trans_order.csv")
+thermal_traits_trans_fg <- read_csv("thermal_traits_trans_fg.csv")
+thermal_traits_complete <- read_csv("thermal_traits_complete.csv")
+species_list <- thermal_traits_complete %>% 
+  group_by(id) %>% 
+  summarise(spp = unique(paste(genus, species))) %>% 
+  write_csv("species_list.csv")
 # Meta-analysis models ----
 
 #tampoco es normal :/
