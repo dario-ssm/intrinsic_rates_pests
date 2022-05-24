@@ -9,6 +9,8 @@
 library(tidyverse)
 library(emmeans)
 library(nlme)
+library(here)
+setwd(paste0(here(),"/data"))
 thermal_traits_trans <- read_csv("thermal_traits_trans.csv")
 thermal_traits_trans_order <- read_csv("thermal_traits_trans_order.csv")
 thermal_traits_trans_fg <- read_csv("thermal_traits_trans_fg.csv")
@@ -500,3 +502,81 @@ summary(therm_range_year)
 intervals_therm_range_year <- intervals(therm_range_year, which = "fixed")
 intervals_therm_range_year <- as.data.frame(intervals_therm_range_year$fixed) #probably give this as "slope per standard unit"
 
+#  g) thermal window  ---- 
+# ~~~~ i) random intercept  ---- 
+therm_window_intercept <- lme(therm_window ~ 1,
+                                 weights = varFixed(~vi),
+                                 random = ~1|id,
+                                 data = thermal_traits_trans,
+                                 control = lmeControl(sigma = 1))
+summary(therm_window_intercept)
+intervals_therm_window_int <- bernr::bolker_ci(therm_window_intercept,
+                                                  newdat = data.frame(x=1),
+                                                  pred_int = TRUE)
+therm_window_intercept_output <- intervals_therm_window_int %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_therm_window, estimate = .x))) %>% 
+  print()
+
+# ~~~~ ii) ~ lat  ---- 
+## random slope & intercept
+therm_window_lat_slope <- lme(therm_window ~ abs(lat),
+                                 random = ~abs(lat)|id,
+                                 weights = varFixed(~vi),
+                                 data = thermal_traits_trans,
+                                 control = lmeControl(sigma = 1))
+summary(therm_window_lat_slope)
+intervals_therm_window_lat_slope <- intervals(therm_window_lat_slope, which = "fixed")
+intervals_therm_window_lat_slope <- as.data.frame(intervals_therm_window_lat_slope$fixed) #probably give this as "slope per standard unit"
+therm_window_lat_slope_output <- intervals_therm_window_lat_slope %>% 
+  select(lower, est., upper) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_therm_window, estimate = .x))) # and this for thermal_breadth at lat=0?
+# ~~~~ iii) ~ order  ---- 
+## random slope & intercept
+therm_window_order <- lme(therm_window ~ as_factor(order),
+                             random = ~ as_factor(order)|id,
+                             weights = varFixed(~vi),
+                             data = thermal_traits_trans_order,
+                             control = lmeControl(sigma = 1))
+summary(therm_window_order)
+emmeans(therm_window_order, list(pairwise ~ order), adjust = "tukey")
+intervals_therm_window_order <- bernr::bolker_ci(therm_window_order,
+                                                    newdat = data.frame(order = c("Acari", "Hemiptera", "Lepidoptera")),
+                                                    pred_int = TRUE)
+therm_window_order_output <- intervals_therm_window_order %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_therm_window, estimate = .x))) %>% 
+  mutate(order = c("Acari", "Hemiptera", "Lepidoptera")) %>% 
+  print()
+
+
+# ~~~~ iv) ~ feeding guild  ---- 
+## random slope & intercept
+therm_window_feeding_guild <- lme(therm_window ~ as_factor(feeding_guild),
+                                     random = ~ as_factor(feeding_guild)|id,
+                                     weights = varFixed(~vi),
+                                     data = thermal_traits_trans_fg,
+                                     control = lmeControl(sigma = 1))
+summary(therm_window_feeding_guild)
+emmeans(therm_window_feeding_guild, list(pairwise ~ feeding_guild), adjust = "tukey")
+intervals_therm_window_feeding_guild <- bernr::bolker_ci(therm_window_feeding_guild,
+                                                            newdat = data.frame(feeding_guild = c("borer", "chewer", "sucker")),
+                                                            pred_int = TRUE)
+therm_window_feeding_guild_output <- intervals_therm_window_feeding_guild %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_therm_window, estimate = .x))) %>% 
+  mutate(feeding_guild = c("borer", "chewer", "sucker")) %>% 
+  print()
+
+
+# ~~~~ v) ~ year  ---- 
+## random slope & intercept
+therm_window_year <- lme(therm_window ~ Year,
+                            random = ~ Year|id,
+                            weights = varFixed(~vi),
+                            data = thermal_traits_trans,
+                            control = lmeControl(sigma = 1,
+                                                 msMaxIter = 100))
+summary(therm_window_year)
+intervals_therm_window_year <- intervals(therm_window_year, which = "fixed")
+intervals_therm_window_year <- as.data.frame(intervals_therm_window_year$fixed) #probably give this as "slope per standard unit"

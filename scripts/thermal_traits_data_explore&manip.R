@@ -211,7 +211,8 @@ save(thermal_breadth_extremes, file = "thermal_breadth_extremes.RData")
 thermal_traits_complete <- thermal_traits_complete %>% 
   bind_cols(thermal_breadth, thermal_breadth_extremes) %>% 
   mutate(tsm = tmax-topt,
-         therm_range = tmax-tmin)
+         therm_range = tmax-tmin,
+         therm_window = topt-tmin)
 write_csv(thermal_traits_complete, "thermal_traits_complete.csv")
 thermal_traits_order <- thermal_traits_complete %>% 
   filter(order == "Acari" |
@@ -270,7 +271,7 @@ bn_thermal_breadth <- bestNormalize(thermal_traits_complete$thermal_breadth)
 bn_a <- bestNormalize(thermal_traits_complete$a_est)
 bn_tsm <- bestNormalize(thermal_traits_complete$tsm)
 bn_therm_range <- bestNormalize(thermal_traits_complete$therm_range)
-
+bn_therm_window <- bestNormalize(thermal_traits_complete$therm_window)
 #then we can model anything but we need to back-transform the estimate with the following structure:
 backtransf <- function(trans_var, estimate){
   # transformation 
@@ -285,7 +286,8 @@ thermal_traits_trans <- thermal_traits_complete %>%
          thermal_breadth = bn_thermal_breadth$x.t,
          a_est = bn_a$x.t,
          tsm = bn_tsm$x.t,
-         therm_range = bn_therm_range$x.t) 
+         therm_range = bn_therm_range$x.t,
+         therm_window = bn_therm_window$x.t) 
 write_csv(thermal_traits_trans, "thermal_traits_trans.csv")
 
 # subset for most represented taxa
