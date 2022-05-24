@@ -16,6 +16,25 @@ library(nlme)
 library(bestNormalize)
 library(networkD3)
 
+#shortcut for later analyses in thermal_traits_analysis_sideB script 
+## AVOID to run it otherwise
+thermal_traits_complete <- read_csv("thermal_traits_complete.csv")
+bn_tmax <- bestNormalize(thermal_traits_complete$tmax)
+bn_tmin <- bestNormalize(thermal_traits_complete$tmin)
+bn_topt <- bestNormalize(thermal_traits_complete$topt)
+bn_thermal_breadth <- bestNormalize(thermal_traits_complete$thermal_breadth)
+bn_a <- bestNormalize(thermal_traits_complete$a_est)
+bn_tsm <- bestNormalize(thermal_traits_complete$tsm)
+bn_therm_range <- bestNormalize(thermal_traits_complete$therm_range)
+bn_therm_window <- bestNormalize(thermal_traits_complete$therm_window)
+#then we can model anything but we need to back-transform the estimate with the following structure:
+backtransf <- function(trans_var, estimate){
+  # transformation 
+  bt_param = predict(trans_var,estimate, inverse = TRUE) 
+}
+## End of shortcut
+
+
 #load paremeterised thermal traits dataset (coming from simulations_and_individual_gnlsfitting.R)
 setwd(paste0(getwd(),"/data"))
 thermal_traits_data_raw <- read_csv("parameters_individual_fitted.csv") %>% # or parameters_individual_fitted.csv (no dimitropoulou's way)
