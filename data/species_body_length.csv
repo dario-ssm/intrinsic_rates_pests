@@ -1,0 +1,53 @@
+id;spp;body size (mm);source;Columna1
+25;Agriphila aeneociliella;11;http://www.jpmoth.org/Crambidae/Crambinae/Agriphila_aeneociliella.html ;
+54;Amphitetranychus viennensis;0.45;same as tetranychus;
+24;Anaphothrips obscurus;1.5;https://digitalcommons.unl.edu/cgi/viewcontent.cgi?article=1153&context=insectamundi;
+38;Anthonomus eugenii;2.8;https://gd.eppo.int/taxon/ANTHEU/datasheet;
+5;Aphis glycines;1.59;https://extension.entm.purdue.edu/fieldcropsipm/insects/soybean-aphid.php;
+26;Arimania komaroffi;18;https://www.zobodat.at/pdf/ENT_0032_0017-0028.pdf;
+23;Athetis dissimilis;27;https://en.wikipedia.org/wiki/Athetis_pallustris;
+2;Atractomorpha sinensis;40;https://mtq.qm.qld.gov.au/Explore/Find+out+about/Animals+of+Queensland/Insects/Grasshoppers+Crickets+and+Katydids/Common+species/Vegetable+Grasshopper#.VFJFfcmc5eE;Atractomorpha similis
+8;Bactrocera oleae;6.8;https://www.cabi.org/isc/datasheet/17689;
+40;Brachycaudus schwartzi;1.95;https://dialnet.unirioja.es/servlet/articulo?codigo=2583871;
+45;Bryobia praetiosa;0.80;https://entnemdept.ufl.edu/creatures/orn/mites/clover_mite.htm;
+39;Ceratothripoides claratis;0.90;https://gd.eppo.int/taxon/CRTZCL/datasheet;
+28;Chilo partellus;25;https://www.cabi.org/isc/datasheet/12859;
+4;Chrysodeixis chalcites;36;https://www.cabi.org/isc/datasheet/13243;
+43;Clavigralla species;9.98;https://www.ijcmas.com/8-10-2019/Bharat%20Lal,%20et%20al.pdf;
+3;Drosophila suzukii;5.5;https://gd.eppo.int/taxon/DROSSU/datasheet;
+44;Eutetranychus africanus;0.396;https://zookeys.pensoft.net/article/25541/element/7/0/Eutetranychus%20africanus/;
+7;Halyomorpha halys;15;https://gd.eppo.int/taxon/HALYHA/documents;
+30;Homalodisca vitripennis;10;https://gd.eppo.int/taxon/HOMLTR/datasheet ;
+35;Hypera postica;10;https://www.naro.affrc.go.jp/archive/niaes/techdoc/apasd/Hypera%20postica%20-B.html;
+6;Leucinoides orbonalis;21;https://www.cabi.org/isc/datasheet/30498;
+19;Marasmia exigua;13;https://apps.lucidcentral.org/ppp/text/web_full/entities/rice_leaf_roller_415.htm;
+18;Monosteira unicostata;2.5;https://www.mapa.gob.es/app/materialvegetal/docs/Monosteira%20unicostata.pdf;
+21;Mythimna loreyi;39;https://www.ukmoths.org.uk/species/leucania-loreyi/;
+16;Mythimna roseilinea;40;promedio de Mythimnas según wikipedia;
+17;Mythimna roseilinea;40;40 (wingspan);
+49;Oligonychus litchii;0.385;https://entnemdept.ufl.edu/creatures/orn/shrubs/southern_red_mite.htm;Oligonychus ilici
+11;Opogona sacchari;31;https://gd.eppo.int/taxon/OPOGSC/documents;
+27;Phenacoccus solenopsis;3.5;https://www.cabi.org/isc/datasheet/109097;
+31;Phenacoccus solenopsis;3.5;https://www.cabi.org/isc/datasheet/109097;
+32;Phenacoccus solenopsis;3.5;https://www.cabi.org/isc/datasheet/109097;
+33;Phtorimaea operculella;16;https://www.cabi.org/isc/datasheet/40686#todescription;
+34;Phyllonorycter corylifoliella;9;https://en.wikipedia.org/wiki/Phyllonorycter_corylifoliella;
+20;Phyllonorycter ringoniella;6.5;wikipedia?;
+9;Plutella xylostella;14;https://www.cabi.org/isc/datasheet/42318;
+22;Plutella xylostella;14;https://www.cabi.org/isc/datasheet/42318;
+47;Rhyncaphytoptus ficifoliae;0.187;https://ia803106.us.archive.org/8/items/biostor-242292/biostor-242292.pdf;
+13;Riptortus pedestris;16.5;https://indiabiodiversity.org/species/show/255023;
+42;Sitobion fragariae;2.3;https://influentialpoints.com/Gallery/Sitobion_fragariae_Blackberry-grass_aphid.htm;
+59;Sitobion miscanthi;2.3;https://influentialpoints.com/Gallery/Sitobion_avenae_English_Grain_aphid.htm;
+37;Tetraneura nigriabdominalis;2.9;https://www.researchgate.net/publication/258023372_TETRANEURA_TETRANEURELLA_NIGRIABDOMINALIS_SASAKI_GALL-FORMING_APHID_FOUND_ON_MAIZE_ROOTS_IN_SLOVENIA;
+52;Tetranychus evansi;0.45;https://gd.eppo.int/taxon/TETREV/datasheet;
+46;Tetranychus kanzawai;0.45;https://gd.eppo.int/taxon/GNORAB/documents;
+55;Tetranychus ludeni;0.45;https://gd.eppo.int/taxon/GNORAB/documents;same for all tetranychus (assumed)
+56;Tetranychus phaselus;0.45;https://gd.eppo.int/taxon/GNORAB/documents;same for all tetranychus (assumed)
+57;Tetranychus piercei;0.45;https://gd.eppo.int/taxon/GNORAB/documents;same for all tetranychus (assumed)
+53;Tetranychus pueraricola;0.45;https://gd.eppo.int/taxon/GNORAB/documents;same for all tetranychus (assumed)
+58;Tetranychus truncatus;0.45;https://gd.eppo.int/taxon/GNORAB/documents;same for all tetranychus (assumed)
+51;Tetranychus turkestani;0.45;https://gd.eppo.int/taxon/GNORAB/documents;same for all tetranychus (assumed)
+50;Tetranychus urticae;0.45;https://gd.eppo.int/taxon/GNORAB/documents;same for all tetranychus (assumed)
+12;Thaumastocoris peregrinus;2.8;https://gd.eppo.int/taxon/THMCPE/documents;same for all tetranychus (assumed)
+1;Tuta absoluta;10;https://gd.eppo.int/taxon/GNORAB/documents;

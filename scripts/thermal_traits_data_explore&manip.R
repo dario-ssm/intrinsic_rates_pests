@@ -227,7 +227,7 @@ save(thermal_breadth_extremes, file = "thermal_breadth_extremes.RData")
 #load(thermal_breadth.RData)
 #load(thermal_breadth_extremes.RData)
 
-thermal_traits_complete <- thermal_traits_complete %>% 
+thermal_traits_complete <- ir_dataset_clean_se %>% 
   bind_cols(thermal_breadth, thermal_breadth_extremes) %>% 
   mutate(tsm = tmax-topt,
          therm_range = tmax-tmin,
@@ -241,8 +241,25 @@ thermal_traits_fg <- thermal_traits_complete %>%
   filter(feeding_guild == "borer" |
            feeding_guild == "chewer" |
            feeding_guild == "sucker")
+
+
+## merge with body size dataset
+body_sizes <- read_delim("species_body_length.csv") %>% 
+  glimpse()
+
+thermal_traits_body <- inner_join(thermal_traits_complete,
+                                  body_sizes,
+                                  by = "id") %>% 
+  rename(body_length = `body size (mm)`) %>% 
+  select(-Columna1) %>% 
+  glimpse()
+
+#and overwrite the complete
+thermal_traits_complete <- thermal_traits_body %>% 
+  write_csv("thermal_traits_complete")
+
 # ~~~~ b) model assumptions (N, homosced.) ----
-# thermal_traits_complete <-read_csv("thermal_traits_complete.csv")
+# thermal_traits_complete <-read_csv("/thermal_traits_complete.csv")
 ## tmin
 hist(thermal_traits_complete$tmin, breaks = 30)
 shapiro.test(thermal_traits_complete$tmin)
@@ -261,7 +278,8 @@ shapiro.test(thermal_traits_complete$thermal_breadth)
 ## a
 hist(thermal_traits_complete$a_est, breaks = 30)
 shapiro.test(thermal_traits_complete$a_est)
-
+## body_length
+hist(thermal_traits_complete$body_length, breaks = 30)
 #we need to transform...
 
 # ~~~~ c) variable transformations ----
@@ -291,6 +309,8 @@ bn_a <- bestNormalize(thermal_traits_complete$a_est)
 bn_tsm <- bestNormalize(thermal_traits_complete$tsm)
 bn_therm_range <- bestNormalize(thermal_traits_complete$therm_range)
 bn_therm_window <- bestNormalize(thermal_traits_complete$therm_window)
+bn_body_length <- bestNormalize(thermal_traits_complete$body_length)
+hist(bn_body_length$x.t, breaks = 30)
 #then we can model anything but we need to back-transform the estimate with the following structure:
 backtransf <- function(trans_var, estimate){
   # transformation 
