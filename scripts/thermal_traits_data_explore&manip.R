@@ -181,7 +181,9 @@ counts_by_order <- ir_dataset_clean_se_order %>%
 # map
 #ggsave("map_meta.png",height=15,width=25,units="cm",bg = "transparent")
 
-# ~~~~ a) incorporate thermal breadth ----
+# ~~~~ a) incorporate thermal breadth & body size----
+
+# ~~~~~~~ i) thermal breadth ----
 #first create empty tibbles to overwrite later with a mutate:
 thermal_breadth <- tibble(thermal_breadth = NULL)
 thermal_tol_range <- tibble(thermal_tol_left = NULL,
@@ -242,7 +244,7 @@ thermal_traits_fg <- thermal_traits_complete %>%
            feeding_guild == "chewer" |
            feeding_guild == "sucker")
 
-
+# ~~~~~~~ ii) body size ----
 ## merge with body size dataset
 body_sizes <- read_delim("species_body_length.csv") %>% 
   glimpse()
@@ -344,3 +346,34 @@ thermal_traits_trans_fg <- thermal_traits_trans %>%
            feeding_guild == "sucker") %>%
   glimpse()
 write_csv(thermal_traits_trans_fg, "thermal_traits_trans_fg.csv")
+
+# ~~~~ e) explore body_sizes ----------------------------------------------------
+dev.off()
+freq_bodies_order <- ggplot(thermal_traits_complete, aes(x = log10(body_length)))+
+  geom_histogram(aes(fill = order),
+                 bins = length(unique(thermal_traits_complete$id)))+
+  labs(x = "body length (mm, logarithmic scale)")+
+  ggthemes::theme_few()+
+  scale_fill_brewer(palette = "Set2")+
+  theme(legend.position = "bottom")
+freq_bodies_order ## at logarithmic scales, there are three categories:
+                      # 1) small (mostly mites)
+                      # 2) medium (mostly hemiptera)
+                      # 3) large (mostly lepidoptera)
+
+freq_bodies_fg <- ggplot(thermal_traits_complete, aes(x = log10(body_length)))+
+  geom_histogram(aes(fill = feeding_guild),
+                 bins = length(unique(thermal_traits_complete$id)))+
+  labs(x = "body length (mm, logarithmic scale)")+
+  scale_fill_manual(values = wesanderson::wes_palette("Moonrise3"))+
+  ggthemes::theme_few()+
+  theme(legend.position = "bottom")
+freq_bodies_fg  ## at logarithmic scales, there are two main categories:
+# 1) small (mostly suckers)
+# 2) large (mostly chewers & borers)
+
+cowplot::plot_grid(freq_bodies_order, freq_bodies_fg, 
+                   labels = "AUTO",
+                   nrow = 2)
+ggsave("body_length_freqs.png", width = 20, height = 20, units = "cm")
+
