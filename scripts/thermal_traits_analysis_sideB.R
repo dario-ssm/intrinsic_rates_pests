@@ -981,3 +981,160 @@ a_est_tmax_lepi<- lme(a_est ~ tmax,
                                       msMaxIter = 100))
 summary(a_est_tmax_lepi)
 
+#  i) t50_left  ---- 
+# ~~~~ i) random intercept  ---- 
+t50_left_intercept <- lme(t50_left ~ 1,
+                     weights = varFixed(~vi),
+                     random = ~1|id,
+                     data = thermal_traits_trans,
+                     control = lmeControl(sigma = 1))
+summary(t50_left_intercept)
+intervals_t50_left_int <- bernr::bolker_ci(t50_left_intercept,
+                                      newdat = data.frame(x=1),
+                                      pred_int = TRUE)
+t50_left_intercept_output <- intervals_t50_left_int %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_t50_left, estimate = .x))) %>% 
+  print()
+
+# ~~~~ ii) ~ lat  ---- 
+## random slope & intercept
+t50_left_lat_slope <- lme(t50_left ~ abs(lat),
+                     random = ~abs(lat)|id,
+                     weights = varFixed(~vi),
+                     data = thermal_traits_trans,
+                     control = lmeControl(sigma = 1))
+summary(t50_left_lat_slope)
+intervals_t50_left_lat_slope <- intervals(t50_left_lat_slope, which = "fixed")
+intervals_t50_left_lat_slope <- as.data.frame(intervals_t50_left_lat_slope$fixed) #probably give this as "slope per standard unit"
+t50_left_lat_slope_output <- intervals_t50_left_lat_slope %>% 
+  select(lower, est., upper) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_t50_left, estimate = .x))) # and this for t50_left at lat=0?
+# ~~~~ iii) ~ order  ---- 
+## random slope & intercept
+t50_left_order <- lme(t50_left ~ as_factor(order),
+                 random = ~ as_factor(order)|id,
+                 weights = varFixed(~vi),
+                 data = thermal_traits_trans_order,
+                 control = lmeControl(sigma = 1))
+summary(t50_left_order)
+emmeans(t50_left_order, list(pairwise ~ order), adjust = "tukey")
+intervals_t50_left_order <- bernr::bolker_ci(t50_left_order,
+                                        newdat = data.frame(order = c("Acari", "Hemiptera", "Lepidoptera")),
+                                        pred_int = TRUE)
+t50_left_order_output <- intervals_t50_left_order %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_t50_left, estimate = .x))) %>% 
+  mutate(order = c("Acari", "Hemiptera", "Lepidoptera")) %>% 
+  print()
+
+
+# ~~~~ iv) ~ feeding guild  ---- 
+## random slope & intercept
+t50_left_feeding_guild <- lme(t50_left ~ as_factor(feeding_guild),
+                         random = ~ as_factor(feeding_guild)|id,
+                         weights = varFixed(~vi),
+                         data = thermal_traits_trans_fg,
+                         control = lmeControl(sigma = 1))
+summary(t50_left_feeding_guild)
+emmeans(t50_left_feeding_guild, list(pairwise ~ feeding_guild), adjust = "tukey")
+intervals_t50_left_feeding_guild <- bernr::bolker_ci(t50_left_feeding_guild,
+                                                newdat = data.frame(feeding_guild = c("borer", "chewer", "sucker")),
+                                                pred_int = TRUE)
+t50_left_feeding_guild_output <- intervals_t50_left_feeding_guild %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_t50_left, estimate = .x))) %>% 
+  mutate(feeding_guild = c("borer", "chewer", "sucker")) %>% 
+  print()
+
+
+# ~~~~ v) ~ year  ---- 
+## random slope & intercept
+t50_left_year <- lme(t50_left ~ Year,
+                random = ~ Year|id,
+                weights = varFixed(~vi),
+                data = thermal_traits_trans,
+                control = lmeControl(sigma = 1,
+                                     msMaxIter = 100))
+summary(t50_left_year)
+intervals_t50_left_year <- intervals(t50_left_year, which = "fixed")
+intervals_t50_left_year <- as.data.frame(intervals_t50_left_year$fixed) #probably give this as "slope per standard unit"
+
+#  j) t50_right ---- 
+# ~~~~ i) random intercept  ---- 
+t50_right_intercept <- lme(t50_right ~ 1,
+                          weights = varFixed(~vi),
+                          random = ~1|id,
+                          data = thermal_traits_trans,
+                          control = lmeControl(sigma = 1))
+summary(t50_right_intercept)
+intervals_t50_right_int <- bernr::bolker_ci(t50_right_intercept,
+                                           newdat = data.frame(x=1),
+                                           pred_int = TRUE)
+t50_right_intercept_output <- intervals_t50_right_int %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_t50_right, estimate = .x))) %>% 
+  print()
+
+# ~~~~ ii) ~ lat  ---- 
+## random slope & intercept
+t50_right_lat_slope <- lme(t50_right ~ abs(lat),
+                          random = ~abs(lat)|id,
+                          weights = varFixed(~vi),
+                          data = thermal_traits_trans,
+                          control = lmeControl(sigma = 1))
+summary(t50_right_lat_slope)
+intervals_t50_right_lat_slope <- intervals(t50_right_lat_slope, which = "fixed")
+intervals_t50_right_lat_slope <- as.data.frame(intervals_t50_right_lat_slope$fixed) #probably give this as "slope per standard unit"
+t50_right_lat_slope_output <- intervals_t50_right_lat_slope %>% 
+  select(lower, est., upper) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_t50_right, estimate = .x))) # and this for t50_right at lat=0?
+# ~~~~ iii) ~ order  ---- 
+## random slope & intercept
+t50_right_order <- lme(t50_right ~ as_factor(order),
+                      random = ~ as_factor(order)|id,
+                      weights = varFixed(~vi),
+                      data = thermal_traits_trans_order,
+                      control = lmeControl(sigma = 1))
+summary(t50_right_order)
+emmeans(t50_right_order, list(pairwise ~ order), adjust = "tukey")
+intervals_t50_right_order <- bernr::bolker_ci(t50_right_order,
+                                             newdat = data.frame(order = c("Acari", "Hemiptera", "Lepidoptera")),
+                                             pred_int = TRUE)
+t50_right_order_output <- intervals_t50_right_order %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_t50_right, estimate = .x))) %>% 
+  mutate(order = c("Acari", "Hemiptera", "Lepidoptera")) %>% 
+  print()
+
+
+# ~~~~ iv) ~ feeding guild  ---- 
+## random slope & intercept
+t50_right_feeding_guild <- lme(t50_right ~ as_factor(feeding_guild),
+                              random = ~ as_factor(feeding_guild)|id,
+                              weights = varFixed(~vi),
+                              data = thermal_traits_trans_fg,
+                              control = lmeControl(sigma = 1))
+summary(t50_right_feeding_guild)
+emmeans(t50_right_feeding_guild, list(pairwise ~ feeding_guild), adjust = "tukey")
+intervals_t50_right_feeding_guild <- bernr::bolker_ci(t50_right_feeding_guild,
+                                                     newdat = data.frame(feeding_guild = c("borer", "chewer", "sucker")),
+                                                     pred_int = TRUE)
+t50_right_feeding_guild_output <- intervals_t50_right_feeding_guild %>% 
+  select(pred, ci_l, ci_h, predint_l, predint_h) %>% 
+  mutate(across(everything(), ~ backtransf(trans_var = bn_t50_right, estimate = .x))) %>% 
+  mutate(feeding_guild = c("borer", "chewer", "sucker")) %>% 
+  print()
+
+
+# ~~~~ v) ~ year  ---- 
+## random slope & intercept
+t50_right_year <- lme(t50_right ~ Year,
+                     random = ~ Year|id,
+                     weights = varFixed(~vi),
+                     data = thermal_traits_trans,
+                     control = lmeControl(sigma = 1,
+                                          msMaxIter = 100))
+summary(t50_right_year)
+intervals_t50_right_year <- intervals(t50_right_year, which = "fixed")
+intervals_t50_right_year <- as.data.frame(intervals_t50_right_year$fixed) #probably give this as "slope per standard unit"

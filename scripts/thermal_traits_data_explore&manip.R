@@ -110,7 +110,7 @@ write_csv(ir_data_complete, "parameters_individual_fit_complemented.csv")
 
 # 2. Exploratory data analysis & manipulation ----
 ## see relationships order vs. feeding guild
-struir_data_complete
+thermal_traits_complete <- read_csv(here("data", "thermal_traits_complete"))
 counts_fg <- thermal_traits_complete %>%
   group_by(id) %>% 
   summarise(feeding_guild = unique(feeding_guild)) %>% 
@@ -226,8 +226,8 @@ save(thermal_breadth_extremes, file = "thermal_breadth_extremes.RData")
 
 ## and obtain final dataset
 #setwd("~/.../data")
-#load(thermal_breadth.RData)
-#load(thermal_breadth_extremes.RData)
+load(here("data", "thermal_breadth.RData"))
+load(here("data", "thermal_breadth_extremes.RData"))
 
 thermal_traits_complete <- ir_dataset_clean_se %>% 
   bind_cols(thermal_breadth, thermal_breadth_extremes) %>% 
@@ -310,6 +310,8 @@ bn_thermal_breadth <- bestNormalize(thermal_traits_complete$thermal_breadth)
 bn_a <- bestNormalize(thermal_traits_complete$a_est)
 bn_tsm <- bestNormalize(thermal_traits_complete$tsm)
 bn_therm_range <- bestNormalize(thermal_traits_complete$therm_range)
+bn_t50_left <- bestNormalize(thermal_traits_complete$t50_left)
+bn_t50_right <- bestNormalize(thermal_traits_complete$t50_right)
 bn_therm_window <- bestNormalize(thermal_traits_complete$therm_window)
 bn_body_length <- bestNormalize(thermal_traits_complete$body_length)
 hist(bn_body_length$x.t, breaks = 30)
@@ -328,7 +330,9 @@ thermal_traits_trans <- thermal_traits_complete %>%
          a_est = bn_a$x.t,
          tsm = bn_tsm$x.t,
          therm_range = bn_therm_range$x.t,
-         therm_window = bn_therm_window$x.t) 
+         therm_window = bn_therm_window$x.t,
+         t50_left = bn_t50_left$x.t,
+         t50_right = bn_t50_right$x.t) 
 write_csv(thermal_traits_trans, "thermal_traits_trans.csv")
 
 # subset for most represented taxa

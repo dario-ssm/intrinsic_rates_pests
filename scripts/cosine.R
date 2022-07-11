@@ -2,7 +2,21 @@
 # Authors: Dario San Segundo Molina & Ignacio Morales Castilla
 # Date: 06/06/2022
 
-
+library(raster)
+library(stringr)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(rworldmap)
+library(purrr)
+library(tidyr)
+library(readr)
+library(cowplot)
+library(performance)
+library(envirem)
+library(abind)
+library(rasterVis)
+library(scales)
 # 1. generic example -------------------------------------------------------
 set.seed(110722)
 daily_min <- c(rnorm(30,5,3), rnorm(30,10,3),rnorm(30,15,3))
@@ -41,3 +55,14 @@ sum(suitable_period)
 
 # 2. applied example for Spain -------------------------------------------------------
 ## we use linear mixed effects results of thermal breadth
+## from meta-analysis (thermal_traits_analysis_sideB.R)
+tblow <- 20.46
+tbhigh <- 34.47
+
+## climatic data
+# ~~  a) Tmax ----
+#load (if csv is saved in your computer from a previous script)
+# if previously ensembled: daily_max_df <- read_csv("Spain02_v5.0_010reg_aa3d/tmax_daily_avg_spain.csv")
+setwd("~/Dario Investigacion/PhenoBrassicaPests/PhenoBrassicaPests/Data")
+#create tibble (if csv has not been previously ensembled; climatic data  must be downloaded first from Spain02 database)
+tmax_brick <- brick(x = "/Users/dario-ssm/Downloads/Spain02_v5.0_010reg_aa3d/Spain02_v5.0_010reg_aa3d/Spain02_v5.0_DD_010reg_aa3d_tasmax.nc")
