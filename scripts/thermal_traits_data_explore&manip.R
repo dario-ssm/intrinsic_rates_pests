@@ -258,7 +258,7 @@ thermal_traits_body <- inner_join(thermal_traits_complete,
 
 #and overwrite the complete
 thermal_traits_complete <- thermal_traits_body %>% 
-  write_csv("thermal_traits_complete")
+  write_csv(paste0(here(),"/data/thermal_traits_complete.csv"))
 
 # ~~~~ b) model assumptions (N, homosced.) ----
 # thermal_traits_complete <-read_csv("/thermal_traits_complete.csv")

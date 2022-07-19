@@ -113,76 +113,6 @@ tmax_year_output <- intervals_tmax_year %>%
   mutate(across(everything(), ~ backtransf(trans_var = bn_tmax, estimate = .x))) %>% 
   print()
 
-# ~~~~ vi) ~ body size  ---- 
-## random slope & intercept
-tmax_bodysize_slope <- lme(tmax ~ body_length,
-                           random = ~body_length|id,
-                           weights = varFixed(~vi),
-                          data = thermal_traits_trans,
-                          control = lmeControl(sigma = 1,
-                                               msMaxIter = 200))
-summary(tmax_bodysize_slope)
-intervals_tmax_bodysize_slope <- intervals(tmax_bodysize_slope, which = "fixed")
-intervals_tmax_bodysize_slope <- as.data.frame(intervals_tmax_bodysize_slope$fixed) #probably give this as "slope per standard unit"
-tmax_bodysize_slope_output <- intervals_tmax_bodysize_slope %>% 
-  select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_tmax, estimate = .x)))
-
-#and without Lepidoptera? (might be exception to Bergmann's rule according to Huey & Kingsolver, 2008)
-tmax_year <- lme(tmax ~ Year,
-                 random = ~ Year|id,
-                 weights = varFixed(~vi),
-                 data = thermal_traits_trans,
-                 control = lmeControl(sigma = 1, msMaxIter = 100))
-summary(tmax_year)
-intervals_tmax_year <- intervals(tmax_year, which = "fixed")
-intervals_tmax_year <- as.data.frame(intervals_tmax_year$fixed) #probably give this as "slope per standard unit"
-
-tmax_year_output <- intervals_tmax_year %>% 
-  select(lower, est., upper) %>% 
-  slice(2) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_tmax, estimate = .x))) %>% 
-  print()
-
-# ~~~~ vi) ~ body size + order  ---- 
-## random intercept
-tmax_bodysize_order <- lme(tmax ~ body_length + order + body_length*order,
-                           random = ~1|id,
-                           weights = varFixed(~vi),
-                           data = thermal_traits_trans_order,
-                           control = lmeControl(sigma = 1))
-summary(tmax_bodysize_order)
-# ~~~~~~~~~~ only lepidoptera  ---- 
-lepi_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Lepidoptera")
-tmax_bodysize_lepi <- lme(tmax ~ body_length,
-                          random = ~body_length|id,
-                          weights = varFixed(~vi),
-                          data = lepi_trans,
-                          control = lmeControl(sigma = 1))
-summary(tmax_bodysize_lepi) #not significant
-# ~~~~~~~~~~ only acari  ---- 
-acari_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Acari")
-tmax_bodysize_acari <- lme(tmax ~ body_length,
-                          random = ~body_length|id,
-                          weights = varFixed(~vi),
-                          data = acari_trans,
-                          control = lmeControl(sigma = 1,
-                                               msMaxIter = 100))
-summary(tmax_bodysize_acari) #not significant
-# ~~~~~~~~~~ only hemiptera  ---- 
-hemiptera_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Hemiptera")
-tmax_bodysize_hemiptera<- lme(tmax ~ body_length,
-                           random = ~body_length|id,
-                           weights = varFixed(~vi),
-                           data = hemiptera_trans,
-                           control = lmeControl(sigma = 1,
-                                                msMaxIter = 100))
-summary(tmax_bodysize_hemiptera) #not significant
-
-
 
 #  b) tmin  ---- 
 # ~~~~ i) random intercept  ---- 
@@ -261,64 +191,6 @@ tmin_year <- lme(tmin ~ Year,
 summary(tmin_year)
 intervals_tmin_year <- intervals(tmin_year, which = "fixed")
 intervals_tmin_year <- as.data.frame(intervals_tmin_year$fixed) #probably give this as "slope per standard unit"
-
-# ~~~~ vi) ~ body size  ---- 
-## random slope & intercept
-tmin_bodysize_slope <- lme(tmin ~ body_length,
-                           random = ~body_length|id,
-                           weights = varFixed(~vi),
-                           data = thermal_traits_trans,
-                           control = lmeControl(sigma = 1,
-                                                maxIter = 200))
-summary(tmin_bodysize_slope)
-intervals_tmin_bodysize_slope <- intervals(tmin_bodysize_slope, which = "fixed")
-intervals_tmin_bodysize_slope <- as.data.frame(intervals_tmin_bodysize_slope$fixed) #probably give this as "slope per standard unit"
-tmin_bodysize_slope_output <- intervals_tmin_bodysize_slope %>% 
-  select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_tmin, estimate = .x)))
-
-#and without Lepidoptera? (might be exception to Bergmann's rule according to Huey & Kingsolver, 2008)
-# ~~~~ vi) ~ body size + order  ---- 
-## random intercept
-tmin_bodysize_order <- lme(tmin ~ body_length + order + body_length*order,
-                           random = ~body_length*order|id,
-                           weights = varFixed(~vi),
-                           data = thermal_traits_trans_order,
-                           control = lmeControl(sigma = 1,
-                                                msMaxIter = 100))
-summary(tmin_bodysize_order)
-# ~~~~~~~~~~ only lepidoptera  ---- 
-lepi_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Lepidoptera")
-tmin_bodysize_lepi <- lme(tmin ~ body_length,
-                          random = ~body_length|id,
-                          weights = varFixed(~vi),
-                          data = lepi_trans,
-                          control = lmeControl(sigma = 1))
-summary(tmin_bodysize_lepi) #not significant
-# ~~~~~~~~~~ only acari  ---- 
-acari_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Acari")
-tmin_bodysize_acari <- lme(tmin ~ body_length,
-                           random = ~body_length|id,
-                           weights = varFixed(~vi),
-                           data = acari_trans,
-                           control = lmeControl(sigma = 1,
-                                                msMaxIter = 200))
-summary(tmin_bodysize_acari) #not significant
-# ~~~~~~~~~~ only hemiptera  ---- 
-hemiptera_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Hemiptera")
-tmin_bodysize_hemiptera<- lme(tmin ~ body_length,
-                              random = ~body_length|id,
-                              weights = varFixed(~vi),
-                              data = hemiptera_trans,
-                              control = lmeControl(sigma = 1,
-                                                   msMaxIter = 100))
-summary(tmin_bodysize_hemiptera) #not significant
-
-
-
 
 # c) topt  ---- 
 # ~~~~ i) random intercept  ---- 
@@ -475,63 +347,6 @@ thermal_breadth_year <- lme(thermal_breadth ~ Year,
 summary(thermal_breadth_year)
 intervals_thermal_breadth_year <- intervals(thermal_breadth_year, which = "fixed")
 intervals_thermal_breadth_year <- as.data.frame(intervals_thermal_breadth_year$fixed) #probably give this as "slope per standard unit"
-
-# ~~~~ vi) ~ body size  ---- 
-## random slope & intercept
-thermal_breadth_bodysize_slope <- lme(thermal_breadth ~ body_length,
-                                      random = ~body_length|id,
-                                      weights = varFixed(~vi),
-                                      data = thermal_traits_trans,
-                                      control = lmeControl(sigma = 1))
-summary(thermal_breadth_bodysize_slope)
-intervals_thermal_breadth_bodysize_slope <- intervals(thermal_breadth_bodysize_slope, which = "fixed")
-intervals_thermal_breadth_bodysize_slope <- as.data.frame(intervals_thermal_breadth_bodysize_slope$fixed) #probably give this as "slope per standard unit"
-thermal_breadth_bodysize_slope_output <- intervals_thermal_breadth_bodysize_slope %>% 
-  select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_thermal_breadth, estimate = .x)))
-
-#and without Lepidoptera? (might be exception to Bergmann's rule according to Huey & Kingsolver, 2008)
-# ~~~~ vi) ~ body size + order  ---- 
-## random intercept
-thermal_breadth_bodysize_order <- lme(thermal_breadth ~ body_length + order + body_length*order,
-                                      random = ~body_length*order|id,
-                                      weights = varFixed(~vi),
-                                      data = thermal_traits_trans_order,
-                                      control = lmeControl(sigma = 1,
-                                                           msMaxIter = 100))
-summary(thermal_breadth_bodysize_order)
-# ~~~~~~~~~~ only lepidoptera  ---- 
-lepi_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Lepidoptera")
-thermal_breadth_bodysize_lepi <- lme(thermal_breadth ~ body_length,
-                                     random = ~body_length|id,
-                                     weights = varFixed(~vi),
-                                     data = lepi_trans,
-                                     control = lmeControl(sigma = 1))
-summary(thermal_breadth_bodysize_lepi) #not significant
-# ~~~~~~~~~~ only acari  ---- 
-acari_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Acari")
-thermal_breadth_bodysize_acari <- lme(thermal_breadth ~ body_length,
-                                      random = ~body_length|id,
-                                      weights = varFixed(~vi),
-                                      data = acari_trans,
-                                      control = lmeControl(sigma = 1,
-                                                           msMaxIter = 100))
-summary(thermal_breadth_bodysize_acari) #not significant
-# ~~~~~~~~~~ only hemiptera  ---- 
-hemiptera_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Hemiptera")
-thermal_breadth_bodysize_hemiptera<- lme(thermal_breadth ~ body_length,
-                              random = ~body_length|id,
-                              weights = varFixed(~vi),
-                              data = hemiptera_trans,
-                              control = lmeControl(sigma = 1,
-                                                   msMaxIter = 100))
-summary(thermal_breadth_bodysize_hemiptera) #not significant
-
-
-
 
 #  e) thermal safety margin  ---- 
 # ~~~~ i) random intercept  ---- 
@@ -770,64 +585,6 @@ summary(therm_window_year)
 intervals_therm_window_year <- intervals(therm_window_year, which = "fixed")
 intervals_therm_window_year <- as.data.frame(intervals_therm_window_year$fixed) #probably give this as "slope per standard unit"
 
-# ~~~~ vi) ~ body size  ---- 
-## random slope & intercept
-therm_window_bodysize_slope <- lme(therm_window ~ body_length,
-                                   random = ~body_length|id,
-                                   weights = varFixed(~vi),
-                                   data = thermal_traits_trans,
-                                   control = lmeControl(sigma = 1))
-summary(therm_window_bodysize_slope)
-intervals_therm_window_bodysize_slope <- intervals(therm_window_bodysize_slope, which = "fixed")
-intervals_therm_window_bodysize_slope <- as.data.frame(intervals_therm_window_bodysize_slope$fixed) #probably give this as "slope per standard unit"
-therm_window_bodysize_slope_output <- intervals_therm_window_bodysize_slope %>% 
-  select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_therm_window, estimate = .x)))
-
-#and without Lepidoptera? (might be exception to Bergmann's rule according to Huey & Kingsolver, 2008)
-# ~~~~ vi) ~ body size + order  ---- 
-## random intercept
-therm_window_bodysize_order <- lme(therm_window ~ body_length + order + body_length*order,
-                           random = ~body_length*order|id,
-                           weights = varFixed(~vi),
-                           data = thermal_traits_trans_order,
-                           control = lmeControl(sigma = 1,
-                                                msMaxIter = 100))
-summary(therm_window_bodysize_order)
-# ~~~~~~~~~~ only lepidoptera  ---- 
-lepi_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Lepidoptera")
-therm_window_bodysize_lepi <- lme(therm_window ~ body_length,
-                          random = ~body_length|id,
-                          weights = varFixed(~vi),
-                          data = lepi_trans,
-                          control = lmeControl(sigma = 1))
-summary(therm_window_bodysize_lepi) #not significant
-# ~~~~~~~~~~ only acari  ---- 
-acari_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Acari")
-therm_window_bodysize_acari <- lme(therm_window ~ body_length,
-                           random = ~body_length|id,
-                           weights = varFixed(~vi),
-                           data = acari_trans,
-                           control = lmeControl(sigma = 1,
-                                                msMaxIter = 200))
-summary(therm_window_bodysize_acari) #not significant
-# ~~~~~~~~~~ only hemiptera  ---- 
-hemiptera_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Hemiptera")
-therm_window_bodysize_hemiptera<- lme(therm_window ~ body_length,
-                              random = ~body_length|id,
-                              weights = varFixed(~vi),
-                              data = hemiptera_trans,
-                              control = lmeControl(sigma = 1,
-                                                   msMaxIter = 100))
-summary(therm_window_bodysize_hemiptera) #not significant
-
-
-
-
-
 #  h) r (proxy: a parameter)  ---- 
 # ~~~~ i) random intercept  ---- 
 a_est_intercept <- lme(a_est ~ 1,
@@ -909,67 +666,14 @@ summary(a_est_year)
 intervals_a_est_year <- intervals(a_est_year, which = "fixed")
 intervals_a_est_year <- as.data.frame(intervals_a_est_year$fixed) #probably give this as "slope per standard unit"
 
-# ~~~~ vi) ~ body size  ---- 
-## random slope & intercept
-a_est_bodysize_slope <- lme(a_est ~ body_length,
-                                   random = ~body_length|id,
-                                   weights = varFixed(~vi),
-                                   data = thermal_traits_trans,
-                                   control = lmeControl(sigma = 1, msMaxIter = 200))
-summary(a_est_bodysize_slope)
-intervals_a_est_bodysize_slope <- intervals(a_est_bodysize_slope, which = "fixed")
-intervals_a_est_bodysize_slope <- as.data.frame(intervals_a_est_bodysize_slope$fixed) #probably give this as "slope per standard unit"
-a_est_bodysize_slope_output <- intervals_a_est_bodysize_slope %>% 
-  select(lower, est., upper) %>% 
-  mutate(across(everything(), ~ backtransf(trans_var = bn_a_est, estimate = .x)))
-
-#and without Lepidoptera? (might be exception to Bergmann's rule according to Huey & Kingsolver, 2008)
-# ~~~~ vi) ~ body size + order  ---- 
-## random intercept
-a_est_bodysize_order <- lme(a_est ~ body_length + order + body_length*order,
-                                   random = ~body_length*order|id,
-                                   weights = varFixed(~vi),
-                                   data = thermal_traits_trans_order,
-                                   control = lmeControl(sigma = 1,
-                                                        msMaxIter = 100))
-summary(a_est_bodysize_order)
-# ~~~~~~~~~~ only lepidoptera  ---- 
-lepi_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Lepidoptera")
-a_est_bodysize_lepi <- lme(a_est ~ body_length,
-                                  random = ~body_length|id,
-                                  weights = varFixed(~vi),
-                                  data = lepi_trans,
-                                  control = lmeControl(sigma = 1))
-summary(a_est_bodysize_lepi) #not significant
-# ~~~~~~~~~~ only acari  ---- 
-acari_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Acari")
-a_est_bodysize_acari <- lme(a_est ~ body_length,
-                                   random = ~body_length|id,
-                                   weights = varFixed(~vi),
-                                   data = acari_trans,
-                                   control = lmeControl(sigma = 1,
-                                                        msMaxIter = 200))
-summary(a_est_bodysize_acari) #not significant
-# ~~~~~~~~~~ only hemiptera  ---- 
-hemiptera_trans <- thermal_traits_trans_order %>% 
-  filter(order == "Hemiptera")
-a_est_bodysize_hemiptera<- lme(a_est ~ body_length,
-                                      random = ~body_length|id,
-                                      weights = varFixed(~vi),
-                                      data = hemiptera_trans,
-                                      control = lmeControl(sigma = 1,
-                                                           msMaxIter = 100))
-summary(a_est_bodysize_hemiptera) #not significant
 
 # ~~~~ vii) ~ tmax ----
-a_est_tmax<- lme(a_est ~ tmax,
-                 random = ~tmax|id,
-                 weights = varFixed(~vi),
-                 data = thermal_traits_trans,
-                 control = lmeControl(sigma = 1,
-                                      msMaxIter = 100))
+a_est_tmax <- lme(a_est ~ tmax,
+                  random = ~tmax|id,
+                  weights = varFixed(~vi),
+                  data = thermal_traits_trans,
+                  control = lmeControl(sigma = 1,
+                                       msMaxIter = 100))
 summary(a_est_tmax)
 
 # maybe acari data is biaings, let's use lepidoptera
